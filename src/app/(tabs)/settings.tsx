@@ -4,7 +4,8 @@ import { File, Paths } from 'expo-file-system';
 import { router } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useSQLiteContext } from 'expo-sqlite';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import type { IconName } from '@/components/category-icon';
 import { Card } from '@/components/card';
@@ -17,6 +18,9 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatDate, todayISO } from '@/lib/dates';
 import { toCsv } from '@/lib/csv';
 import { confirmDestructive, showMessage } from '@/lib/dialog';
+import { useAppLock } from '@/lock/app-lock-context';
+import { authenticateWithBiometrics, type BiometricSupport, getBiometricSupport } from '@/lock/biometrics';
+import { setBiometricsEnabled } from '@/lock/lock-store';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
@@ -85,6 +89,8 @@ export default function SettingsScreen() {
   return (
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
+        <SecurityCard />
+
         <Card style={styles.group}>
           <SettingsRow icon="wallet-outline" label="Quản lý ví" onPress={() => router.push('/wallets')} />
           <SettingsRow icon="pricetags-outline" label="Quản lý danh mục" onPress={() => router.push('/categories')} />
@@ -100,6 +106,98 @@ export default function SettingsScreen() {
         </ThemedText>
       </ScrollView>
     </ThemedView>
+  );
+}
+
+function SecurityCard() {
+  const { settings, reload } = useAppLock();
+  const [biometrics, setBiometrics] = useState<BiometricSupport>();
+
+  useEffect(() => {
+    getBiometricSupport().then(setBiometrics);
+  }, []);
+
+  const openPin = (mode: 'create' | 'change' | 'disable') =>
+    router.push({ pathname: '/security/pin', params: { mode } });
+
+  const toggleBiometrics = async (enabled: boolean) => {
+    // Confirm the finger/face actually works before relying on it.
+    if (enabled && !(await authenticateWithBiometrics(`Xác nhận ${biometrics?.label ?? 'vân tay'}`))) return;
+    await setBiometricsEnabled(enabled);
+    await reload();
+  };
+
+  const biometricLabel = biometrics?.label ?? 'vân tay';
+
+  return (
+    <Card style={styles.group}>
+      <SwitchRow
+        icon="lock-closed-outline"
+        label="Khóa ứng dụng bằng mã PIN"
+        value={settings.pinEnabled}
+        onValueChange={(on) => openPin(on ? 'create' : 'disable')}
+      />
+      {settings.pinEnabled && (
+        <>
+          <SettingsRow icon="keypad-outline" label="Đổi mã PIN" onPress={() => openPin('change')} />
+          <SwitchRow
+            icon="finger-print"
+            label={`Mở khóa bằng ${biometricLabel}`}
+            hint={
+              biometrics?.notEnrolled
+                ? `Hãy thêm ${biometricLabel} trong Cài đặt của điện thoại trước.`
+                : biometrics && !biometrics.available
+                  ? 'Thiết bị không hỗ trợ.'
+                  : undefined
+            }
+            value={settings.biometricsEnabled}
+            disabled={!biometrics?.available}
+            onValueChange={toggleBiometrics}
+          />
+          <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
+            Ứng dụng tự khóa khi bạn rời đi quá 30 giây.
+          </ThemedText>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function SwitchRow({
+  icon,
+  label,
+  hint,
+  value,
+  disabled,
+  onValueChange,
+}: {
+  icon: IconName;
+  label: string;
+  hint?: string;
+  value: boolean;
+  disabled?: boolean;
+  onValueChange: (value: boolean) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={styles.row}>
+      <Ionicons name={icon} size={22} color={disabled ? theme.textSecondary : theme.text} />
+      <View style={styles.label}>
+        <ThemedText themeColor={disabled ? 'textSecondary' : 'text'}>{label}</ThemedText>
+        {hint && (
+          <ThemedText type="small" themeColor="textSecondary">
+            {hint}
+          </ThemedText>
+        )}
+      </View>
+      <Switch
+        value={value}
+        disabled={disabled}
+        onValueChange={onValueChange}
+        trackColor={{ true: theme.tint, false: theme.backgroundSelected }}
+        accessibilityLabel={label}
+      />
+    </View>
   );
 }
 
@@ -151,5 +249,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     textAlign: 'center',
+  },
+  note: {
+    paddingBottom: Spacing.two,
   },
 });

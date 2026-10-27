@@ -46,7 +46,14 @@
       ],
       "expo-sqlite",
       "expo-sharing",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Cho phép $(PRODUCT_NAME) dùng Face ID để mở khóa ứng dụng."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

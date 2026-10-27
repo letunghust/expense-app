@@ -5,6 +5,7 @@ import { useColorScheme } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { DataVersionProvider } from '@/db/data-context';
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/db/schema';
+import { AppLockGate } from '@/lock/app-lock-context';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -17,20 +18,23 @@ export default function RootLayout() {
   };
 
   return (
-    <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
-      <DataVersionProvider>
-        <ThemeProvider value={navigationTheme}>
-          <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="transaction/[id]" options={{ presentation: 'modal', title: 'Giao dịch' }} />
-            <Stack.Screen name="budget/[categoryId]" options={{ presentation: 'modal', title: 'Ngân sách' }} />
-            <Stack.Screen name="categories" options={{ title: 'Danh mục' }} />
-            <Stack.Screen name="category/[id]" options={{ presentation: 'modal', title: 'Danh mục' }} />
-            <Stack.Screen name="wallets" options={{ title: 'Ví của bạn' }} />
-            <Stack.Screen name="wallet/[id]" options={{ presentation: 'modal', title: 'Ví' }} />
-          </Stack>
-        </ThemeProvider>
-      </DataVersionProvider>
-    </SQLiteProvider>
+    <ThemeProvider value={navigationTheme}>
+      <AppLockGate>
+        <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
+          <DataVersionProvider>
+            <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="transaction/[id]" options={{ presentation: 'modal', title: 'Giao dịch' }} />
+              <Stack.Screen name="budget/[categoryId]" options={{ presentation: 'modal', title: 'Ngân sách' }} />
+              <Stack.Screen name="categories" options={{ title: 'Danh mục' }} />
+              <Stack.Screen name="category/[id]" options={{ presentation: 'modal', title: 'Danh mục' }} />
+              <Stack.Screen name="wallets" options={{ title: 'Ví của bạn' }} />
+              <Stack.Screen name="wallet/[id]" options={{ presentation: 'modal', title: 'Ví' }} />
+              <Stack.Screen name="security/pin" options={{ presentation: 'modal', title: 'Mã PIN' }} />
+            </Stack>
+          </DataVersionProvider>
+        </SQLiteProvider>
+      </AppLockGate>
+    </ThemeProvider>
   );
 }
