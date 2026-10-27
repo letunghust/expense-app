@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#0F172A"/>
+  <g transform="rotate(-90 512 512)" fill="none" stroke-width="112">
+    <!-- r=270, circumference ~ 1696; segments 40/25/20/15 % with small gaps -->
+    <circle cx="512" cy="512" r="270" stroke="#3B82F6" stroke-dasharray="658 1038" stroke-dashoffset="0"/>
+    <circle cx="512" cy="512" r="270" stroke="#F97316" stroke-dasharray="404 1292" stroke-dashoffset="-678"/>
+    <circle cx="512" cy="512" r="270" stroke="#EC4899" stroke-dasharray="319 1377" stroke-dashoffset="-1102"/>
+    <circle cx="512" cy="512" r="270" stroke="#22C55E" stroke-dasharray="235 1461" stroke-dashoffset="-1441"/>
+  </g>
+  <text x="512" y="612" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-weight="700" font-size="280" fill="#FFFFFF">₫</text>
+</svg>

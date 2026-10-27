@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#059669"/><stop offset="1" stop-color="#34D399"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- rising bars -->
+  <rect x="262" y="560" width="130" height="220" rx="36" fill="#FFFFFF" opacity="0.75"/>
+  <rect x="447" y="450" width="130" height="330" rx="36" fill="#FFFFFF" opacity="0.88"/>
+  <rect x="632" y="340" width="130" height="440" rx="36" fill="#FFFFFF"/>
+  <!-- coin on top -->
+  <circle cx="697" cy="250" r="105" fill="#FFC93C" stroke="#F5A623" stroke-width="14"/>
+  <text x="697" y="296" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-weight="700" font-size="135" fill="#B7791F">₫</text>
+</svg>
