@@ -1,56 +1,63 @@
-# Welcome to your Expo app 👋
+# Chi Tiêu — ứng dụng quản lý chi tiêu
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Ứng dụng ghi chép thu chi cá nhân cho Android (và iOS sau này), viết bằng Expo / React Native + TypeScript.
+Dữ liệu lưu offline trên điện thoại bằng SQLite, không cần tài khoản hay internet.
 
-## Get started
+## Tính năng
 
-1. Install dependencies
+- **Tổng quan**: tổng số dư các ví; thu, chi và chênh lệch trong tháng; biểu đồ tròn theo danh mục; biểu đồ cột chi tiêu theo ngày; giao dịch gần đây
+- **Giao dịch**: thêm, sửa, xóa khoản thu/chi; danh sách nhóm theo ngày; tìm kiếm không dấu ("an sang" tìm ra "Ăn sáng"); lọc theo loại hoặc danh mục
+- **Ngân sách**: hạn mức hằng tháng cho từng danh mục; thanh tiến độ chuyển vàng khi tiêu tới 80% và đỏ khi vượt
+- **Ví**: nhiều ví (tiền mặt, ngân hàng…), mỗi ví có số dư ban đầu
+- **Danh mục**: 14 danh mục mặc định, tự tạo thêm với biểu tượng và màu riêng
+- **Xuất CSV**: mở được bằng Excel, hiển thị đúng tiếng Việt
+- Chế độ sáng/tối theo hệ thống
 
+## Chạy thử trên điện thoại Android
+
+1. Cài app **Expo Go** từ Google Play.
+2. Trên máy tính, trong thư mục này:
    ```bash
    npm install
-   ```
-
-2. Start the app
-
-   ```bash
    npx expo start
    ```
+3. Mở Expo Go và quét mã QR hiện trong terminal. Điện thoại và máy tính phải dùng chung một mạng Wi-Fi.
+   Nếu không kết nối được, chạy `npx expo start --tunnel`.
 
-In the output, you'll find options to open the app in a
+## Build file cài đặt (APK) và bản iOS
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Dùng EAS Build trên cloud, không cần Android Studio hay máy Mac:
 
 ```bash
-npm run reset-project
+npx eas-cli@latest login            # cần tài khoản expo.dev (miễn phí)
+npx eas-cli@latest build:configure
+npx eas-cli@latest build -p android --profile preview   # ra file .apk để cài trực tiếp
+npx eas-cli@latest build -p ios                         # cần tài khoản Apple Developer
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Để `--profile preview` ra file `.apk` thay vì `.aab`, trong `eas.json` thêm `"android": { "buildType": "apk" }` vào profile `preview`.
 
-### Other setup steps
+## Phát triển
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+npm test             # unit test (logic + SQL chạy trên SQLite thật qua node:sqlite)
+npx tsc --noEmit     # kiểm tra kiểu
+npx expo lint        # lint
+```
 
-## Learn more
+Cấu trúc thư mục:
 
-To learn more about developing your project with Expo, look at the following resources:
+```
+src/
+  app/            Các màn hình (Expo Router — mỗi file là một route)
+    (tabs)/       4 tab: Tổng quan, Giao dịch, Ngân sách, Cài đặt
+    transaction/  Form thêm/sửa giao dịch
+    budget/       Form đặt hạn mức
+    category/ wallet/  Form danh mục, ví
+  components/     Component giao diện dùng chung (biểu đồ, form…)
+  db/             Schema SQLite, migration, các câu truy vấn
+  lib/            Logic thuần: định dạng tiền VND, ngày tháng, CSV, tìm kiếm
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Tiền được lưu dưới dạng số nguyên (đồng), ngày dưới dạng chuỗi `YYYY-MM-DD`.
+Khi đổi schema, thêm một bước migration mới trong `src/db/schema.ts` và tăng `DATABASE_VERSION`.

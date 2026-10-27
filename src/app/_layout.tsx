@@ -1,18 +1,36 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { SQLiteProvider } from 'expo-sqlite';
 import { useColorScheme } from 'react-native';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { Colors } from '@/constants/theme';
+import { DataVersionProvider } from '@/db/data-context';
+import { DATABASE_NAME, migrateDbIfNeeded } from '@/db/schema';
 
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
+export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const base = isDark ? DarkTheme : DefaultTheme;
+  const colors = Colors[isDark ? 'dark' : 'light'];
+  const navigationTheme = {
+    ...base,
+    colors: { ...base.colors, primary: colors.tint, background: colors.background, card: colors.background },
+  };
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
+      <DataVersionProvider>
+        <ThemeProvider value={navigationTheme}>
+          <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="transaction/[id]" options={{ presentation: 'modal', title: 'Giao dịch' }} />
+            <Stack.Screen name="budget/[categoryId]" options={{ presentation: 'modal', title: 'Ngân sách' }} />
+            <Stack.Screen name="categories" options={{ title: 'Danh mục' }} />
+            <Stack.Screen name="category/[id]" options={{ presentation: 'modal', title: 'Danh mục' }} />
+            <Stack.Screen name="wallets" options={{ title: 'Ví của bạn' }} />
+            <Stack.Screen name="wallet/[id]" options={{ presentation: 'modal', title: 'Ví' }} />
+          </Stack>
+        </ThemeProvider>
+      </DataVersionProvider>
+    </SQLiteProvider>
   );
 }
