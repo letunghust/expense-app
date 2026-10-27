@@ -4,7 +4,7 @@ import { File, Paths } from 'expo-file-system';
 import { router } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useSQLiteContext } from 'expo-sqlite';
-import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import type { IconName } from '@/components/category-icon';
 import { Card } from '@/components/card';
@@ -16,6 +16,7 @@ import { deleteAllTransactions, listAllTransactions } from '@/db/repo';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDate, todayISO } from '@/lib/dates';
 import { toCsv } from '@/lib/csv';
+import { confirmDestructive, showMessage } from '@/lib/dialog';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
@@ -25,7 +26,7 @@ export default function SettingsScreen() {
     try {
       const rows = await listAllTransactions(db);
       if (rows.length === 0) {
-        Alert.alert('Chưa có dữ liệu', 'Bạn chưa có giao dịch nào để xuất.');
+        showMessage('Chưa có dữ liệu', 'Bạn chưa có giao dịch nào để xuất.');
         return;
       }
       const csv = toCsv(
@@ -39,13 +40,23 @@ export default function SettingsScreen() {
           r.note,
         ])
       );
-      const file = new File(Paths.cache, `chi-tieu-${todayISO()}.csv`);
+      const fileName = `chi-tieu-${todayISO()}.csv`;
+      if (Platform.OS === 'web') {
+        // No share sheet in the browser: download the file instead.
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        return;
+      }
+      const file = new File(Paths.cache, fileName);
       if (file.exists) file.delete();
       file.create();
       await file.write(csv);
 
       if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert('Không thể chia sẻ', 'Thiết bị này không hỗ trợ chia sẻ tệp.');
+        showMessage('Không thể chia sẻ', 'Thiết bị này không hỗ trợ chia sẻ tệp.');
         return;
       }
       await Sharing.shareAsync(file.uri, {
@@ -55,26 +66,21 @@ export default function SettingsScreen() {
       });
     } catch (error) {
       console.error(error);
-      Alert.alert('Lỗi', 'Không xuất được tệp CSV.');
+      showMessage('Lỗi', 'Không xuất được tệp CSV.');
     }
   };
 
   const confirmDeleteAll = () =>
-    Alert.alert(
-      'Xóa toàn bộ giao dịch?',
-      'Tất cả giao dịch sẽ bị xóa vĩnh viễn. Ví, danh mục và ngân sách vẫn được giữ lại. Nên xuất CSV để sao lưu trước.',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa tất cả',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteAllTransactions(db);
-            notifyChanged();
-          },
-        },
-      ]
-    );
+    confirmDestructive({
+      title: 'Xóa toàn bộ giao dịch?',
+      message:
+        'Tất cả giao dịch sẽ bị xóa vĩnh viễn. Ví, danh mục và ngân sách vẫn được giữ lại. Nên xuất CSV để sao lưu trước.',
+      confirmText: 'Xóa tất cả',
+      onConfirm: async () => {
+        await deleteAllTransactions(db);
+        notifyChanged();
+      },
+    });
 
   return (
     <ThemedView style={styles.screen}>

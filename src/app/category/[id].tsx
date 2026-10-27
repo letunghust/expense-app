@@ -1,7 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/category-icon';
 import { Button, ColorPicker, FormLabel, IconPicker, TextField } from '@/components/form';
@@ -12,6 +12,7 @@ import { Spacing } from '@/constants/theme';
 import { useNotifyDataChanged } from '@/db/data-context';
 import { createCategory, getCategory, removeCategory, updateCategory } from '@/db/repo';
 import type { TransactionType } from '@/db/types';
+import { confirmDestructive, showMessage } from '@/lib/dialog';
 
 export default function CategoryFormScreen() {
   const params = useLocalSearchParams<{ id: string; type?: TransactionType }>();
@@ -38,7 +39,7 @@ export default function CategoryFormScreen() {
   const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      Alert.alert('Thiếu tên', 'Vui lòng nhập tên danh mục.');
+      showMessage('Thiếu tên', 'Vui lòng nhập tên danh mục.');
       return;
     }
     if (isNew) await createCategory(db, { name: trimmed, type, icon, color });
@@ -48,22 +49,17 @@ export default function CategoryFormScreen() {
   };
 
   const confirmDelete = () =>
-    Alert.alert(
-      'Xóa danh mục?',
-      'Các giao dịch cũ thuộc danh mục này vẫn được giữ lại, nhưng bạn sẽ không chọn được danh mục này cho giao dịch mới.',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            await removeCategory(db, Number(params.id));
-            notifyChanged();
-            router.back();
-          },
-        },
-      ]
-    );
+    confirmDestructive({
+      title: 'Xóa danh mục?',
+      message:
+        'Các giao dịch cũ thuộc danh mục này vẫn được giữ lại, nhưng bạn sẽ không chọn được danh mục này cho giao dịch mới.',
+      confirmText: 'Xóa',
+      onConfirm: async () => {
+        await removeCategory(db, Number(params.id));
+        notifyChanged();
+        router.back();
+      },
+    });
 
   return (
     <ThemedView style={styles.screen}>

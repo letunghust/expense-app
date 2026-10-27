@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/category-icon';
 import { ThemedText } from '@/components/themed-text';
@@ -11,6 +11,7 @@ import { useDbQuery, useNotifyDataChanged } from '@/db/data-context';
 import { listBudgets, setBudget } from '@/db/repo';
 import { useTheme } from '@/hooks/use-theme';
 import { currentYearMonth, monthRange } from '@/lib/dates';
+import { showMessage } from '@/lib/dialog';
 import { formatAmountInput, formatVND, groupDigits, parseAmount } from '@/lib/money';
 
 export default function BudgetFormScreen() {
@@ -36,7 +37,7 @@ export default function BudgetFormScreen() {
   const onSave = () => {
     const amount = parseAmount(amountText);
     if (amount == null) {
-      Alert.alert('Thiếu số tiền', 'Vui lòng nhập hạn mức lớn hơn 0.');
+      showMessage('Thiếu số tiền', 'Vui lòng nhập hạn mức lớn hơn 0.');
       return;
     }
     save(amount);
@@ -109,6 +110,7 @@ const styles = StyleSheet.create({
   },
   amountInput: {
     flex: 1,
+    minWidth: 0, // web: <input> otherwise keeps its default intrinsic width and overflows
     fontSize: 32,
     fontWeight: 700,
     paddingVertical: Spacing.two,

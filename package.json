@@ -49,7 +49,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "jest"
+    "test": "jest",
+    "web:preview": "expo export -p web && node scripts/serve-web.js"
   },
   "private": true,
   "jest": {

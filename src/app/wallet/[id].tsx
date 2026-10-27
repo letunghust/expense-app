@@ -1,7 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import { Button, FormLabel, IconPicker, TextField } from '@/components/form';
 import { ThemedView } from '@/components/themed-view';
@@ -10,6 +10,7 @@ import { Spacing } from '@/constants/theme';
 import { useDbQuery, useNotifyDataChanged } from '@/db/data-context';
 import { createWallet, deleteWallet, listWallets, updateWallet } from '@/db/repo';
 import { useTheme } from '@/hooks/use-theme';
+import { confirmDestructive, showMessage } from '@/lib/dialog';
 import { formatAmountInput, groupDigits, parseAmount } from '@/lib/money';
 
 export default function WalletFormScreen() {
@@ -33,7 +34,7 @@ export default function WalletFormScreen() {
   const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      Alert.alert('Thiếu tên', 'Vui lòng nhập tên ví.');
+      showMessage('Thiếu tên', 'Vui lòng nhập tên ví.');
       return;
     }
     const initialBalance = parseAmount(initialText) ?? 0;
@@ -46,25 +47,23 @@ export default function WalletFormScreen() {
   const confirmDelete = () => {
     if (!wallet || !wallets) return;
     if (wallets.length <= 1) {
-      Alert.alert('Không thể xóa', 'Bạn cần giữ lại ít nhất một ví.');
+      showMessage('Không thể xóa', 'Bạn cần giữ lại ít nhất một ví.');
       return;
     }
     const message =
       wallet.transactionCount > 0
         ? `Ví này có ${wallet.transactionCount} giao dịch. Tất cả sẽ bị xóa vĩnh viễn cùng với ví.`
         : 'Ví này sẽ bị xóa.';
-    Alert.alert(`Xóa ví "${wallet.name}"?`, message, [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteWallet(db, wallet.id);
-          notifyChanged();
-          router.back();
-        },
+    confirmDestructive({
+      title: `Xóa ví "${wallet.name}"?`,
+      message,
+      confirmText: 'Xóa',
+      onConfirm: async () => {
+        await deleteWallet(db, wallet.id);
+        notifyChanged();
+        router.back();
       },
-    ]);
+    });
   };
 
   return (

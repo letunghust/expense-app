@@ -174,6 +174,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
+    minWidth: 0, // web: <input> otherwise keeps its default intrinsic width and overflows
     fontSize: 15,
     paddingVertical: 10,
   },

@@ -4,7 +4,6 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -32,6 +31,7 @@ import {
 import type { TransactionType } from '@/db/types';
 import { useTheme } from '@/hooks/use-theme';
 import { todayISO } from '@/lib/dates';
+import { confirmDestructive, showMessage } from '@/lib/dialog';
 import { formatAmountInput, groupDigits, parseAmount } from '@/lib/money';
 
 export default function TransactionFormScreen() {
@@ -83,15 +83,15 @@ export default function TransactionFormScreen() {
   const save = async () => {
     const amount = parseAmount(amountText);
     if (amount == null) {
-      Alert.alert('Thiếu số tiền', 'Vui lòng nhập số tiền lớn hơn 0.');
+      showMessage('Thiếu số tiền', 'Vui lòng nhập số tiền lớn hơn 0.');
       return;
     }
     if (categoryId == null) {
-      Alert.alert('Thiếu danh mục', 'Vui lòng chọn một danh mục.');
+      showMessage('Thiếu danh mục', 'Vui lòng chọn một danh mục.');
       return;
     }
     if (selectedWalletId == null) {
-      Alert.alert('Thiếu ví', 'Vui lòng tạo ít nhất một ví trong phần Cài đặt.');
+      showMessage('Thiếu ví', 'Vui lòng tạo ít nhất một ví trong phần Cài đặt.');
       return;
     }
     setSaving(true);
@@ -103,24 +103,22 @@ export default function TransactionFormScreen() {
       router.back();
     } catch (error) {
       console.error(error);
-      Alert.alert('Lỗi', 'Không lưu được giao dịch. Vui lòng thử lại.');
+      showMessage('Lỗi', 'Không lưu được giao dịch. Vui lòng thử lại.');
       setSaving(false);
     }
   };
 
   const confirmDelete = () =>
-    Alert.alert('Xóa giao dịch?', 'Giao dịch này sẽ bị xóa vĩnh viễn.', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Xóa',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteTransaction(db, Number(id));
-          notifyChanged();
-          router.back();
-        },
+    confirmDestructive({
+      title: 'Xóa giao dịch?',
+      message: 'Giao dịch này sẽ bị xóa vĩnh viễn.',
+      confirmText: 'Xóa',
+      onConfirm: async () => {
+        await deleteTransaction(db, Number(id));
+        notifyChanged();
+        router.back();
       },
-    ]);
+    });
 
   if (!loaded || !categories || !wallets) {
     return (
@@ -271,6 +269,7 @@ const styles = StyleSheet.create({
   },
   amountInput: {
     flex: 1,
+    minWidth: 0, // web: <input> otherwise keeps its default intrinsic width and overflows
     fontSize: 36,
     fontWeight: 700,
     paddingVertical: Spacing.two,
@@ -310,6 +309,7 @@ const styles = StyleSheet.create({
   },
   noteInput: {
     flex: 1,
+    minWidth: 0, // web: <input> otherwise keeps its default intrinsic width and overflows
     fontSize: 16,
     paddingVertical: Spacing.two,
   },
