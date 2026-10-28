@@ -127,7 +127,7 @@ export type TransactionFilter = DateRange & {
 
 const TRANSACTION_ROW_SELECT = `
   SELECT t.id, t.type, t.amount, t.category_id AS categoryId, t.wallet_id AS walletId,
-    t.date, t.note,
+    t.date, t.note, t.receipt,
     c.name AS categoryName, c.icon AS categoryIcon, c.color AS categoryColor,
     w.name AS walletName
   FROM transactions t
@@ -172,7 +172,7 @@ export function listAllTransactions(db: SQLiteDatabase): Promise<TransactionRow[
 
 export function getTransaction(db: SQLiteDatabase, id: number): Promise<Transaction | null> {
   return db.getFirstAsync<Transaction>(
-    `SELECT id, type, amount, category_id AS categoryId, wallet_id AS walletId, date, note
+    `SELECT id, type, amount, category_id AS categoryId, wallet_id AS walletId, date, note, receipt
      FROM transactions WHERE id = ?`,
     id
   );
@@ -180,20 +180,21 @@ export function getTransaction(db: SQLiteDatabase, id: number): Promise<Transact
 
 export async function createTransaction(db: SQLiteDatabase, input: TransactionInput): Promise<number> {
   const result = await db.runAsync(
-    'INSERT INTO transactions (type, amount, category_id, wallet_id, date, note) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO transactions (type, amount, category_id, wallet_id, date, note, receipt) VALUES (?, ?, ?, ?, ?, ?, ?)',
     input.type,
     input.amount,
     input.categoryId,
     input.walletId,
     input.date,
-    input.note
+    input.note,
+    input.receipt ?? null
   );
   return result.lastInsertRowId;
 }
 
 export async function updateTransaction(db: SQLiteDatabase, id: number, input: TransactionInput): Promise<void> {
   await db.runAsync(
-    `UPDATE transactions SET type = ?, amount = ?, category_id = ?, wallet_id = ?, date = ?, note = ?
+    `UPDATE transactions SET type = ?, amount = ?, category_id = ?, wallet_id = ?, date = ?, note = ?, receipt = ?
      WHERE id = ?`,
     input.type,
     input.amount,
@@ -201,6 +202,7 @@ export async function updateTransaction(db: SQLiteDatabase, id: number, input: T
     input.walletId,
     input.date,
     input.note,
+    input.receipt ?? null,
     id
   );
 }
@@ -290,6 +292,12 @@ export async function setBudget(db: SQLiteDatabase, categoryId: number, amount: 
 }
 
 // ---------- Maintenance ----------
+
+/** Every receipt file name still referenced by a transaction. */
+export async function listReceipts(db: SQLiteDatabase): Promise<string[]> {
+  const rows = await db.getAllAsync<{ receipt: string }>('SELECT receipt FROM transactions WHERE receipt IS NOT NULL');
+  return rows.map((row) => row.receipt);
+}
 
 export async function deleteAllTransactions(db: SQLiteDatabase): Promise<void> {
   await db.runAsync('DELETE FROM transactions');

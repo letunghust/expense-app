@@ -1,11 +1,18 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import { SQLiteProvider } from 'expo-sqlite';
+import { type SQLiteDatabase, SQLiteProvider } from 'expo-sqlite';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 import { DataVersionProvider } from '@/db/data-context';
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/db/schema';
 import { AppLockGate } from '@/lock/app-lock-context';
+import { cleanUpReceipts } from '@/receipts/scan';
+
+async function initDb(db: SQLiteDatabase) {
+  await migrateDbIfNeeded(db);
+  // Images from scans that were never saved.
+  await cleanUpReceipts(db);
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -20,7 +27,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={navigationTheme}>
       <AppLockGate>
-        <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
+        <SQLiteProvider databaseName={DATABASE_NAME} onInit={initDb}>
           <DataVersionProvider>
             <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

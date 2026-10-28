@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useS
 import { AppState } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
-import { shouldLockOnResume } from '@/lib/app-lock';
+import { AUTO_LOCK_AFTER_MS, shouldLockOnResume, SYSTEM_UI_AUTO_LOCK_AFTER_MS } from '@/lib/app-lock';
 
 import { LockScreen } from './lock-screen';
 import { loadLockSettings, type LockSettings } from './lock-store';
@@ -15,6 +15,21 @@ export function useAppLock(): AppLockValue {
   const value = useContext(AppLockContext);
   if (!value) throw new Error('useAppLock must be used inside <AppLockGate>');
   return value;
+}
+
+// The photo picker and share sheet put the app in the background too. Locking
+// after the usual 30s there would unmount the screen and lose what the user
+// was doing, so leaving for those gets longer.
+let systemUiOpen = 0;
+
+/** Runs a task that shows a system screen over the app, such as the photo picker. */
+export async function withAutoLockPaused<T>(task: () => Promise<T>): Promise<T> {
+  systemUiOpen++;
+  try {
+    return await task();
+  } finally {
+    systemUiOpen--;
+  }
 }
 
 async function readSettings(): Promise<LockSettings> {
@@ -47,11 +62,13 @@ export function AppLockGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let backgroundedAt: number | null = null;
+    let lockAfterMs = AUTO_LOCK_AFTER_MS;
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'background') {
         backgroundedAt = Date.now();
+        lockAfterMs = systemUiOpen > 0 ? SYSTEM_UI_AUTO_LOCK_AFTER_MS : AUTO_LOCK_AFTER_MS;
       } else if (state === 'active') {
-        if (shouldLockOnResume(backgroundedAt, Date.now())) {
+        if (shouldLockOnResume(backgroundedAt, Date.now(), lockAfterMs)) {
           readSettings().then((s) => {
             setSettings(s);
             if (s.pinEnabled) setLocked(true);

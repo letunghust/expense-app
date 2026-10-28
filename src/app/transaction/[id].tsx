@@ -33,21 +33,35 @@ import { useTheme } from '@/hooks/use-theme';
 import { todayISO } from '@/lib/dates';
 import { confirmDestructive, showMessage } from '@/lib/dialog';
 import { formatAmountInput, groupDigits, parseAmount } from '@/lib/money';
+import { receiptNote } from '@/lib/receipt-parser';
+import { ReceiptAttachment, type ScanStatus, scanStatusOf } from '@/receipts/receipt-attachment';
+import { receiptUri } from '@/receipts/receipt-files';
+import { ReceiptViewer } from '@/receipts/receipt-viewer';
+import { cleanUpReceipts, getStashedScan, scanTransferReceipt } from '@/receipts/scan';
 
 export default function TransactionFormScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `scan` is set when the scan button on the main screens already read a screenshot.
+  const { id, scan: scanKey } = useLocalSearchParams<{ id: string; scan?: string }>();
   const isNew = id === 'new';
   const db = useSQLiteContext();
   const notifyChanged = useNotifyDataChanged();
   const theme = useTheme();
 
+  const [initialScan] = useState(() => getStashedScan(scanKey));
   const [loaded, setLoaded] = useState(isNew);
   const [type, setType] = useState<TransactionType>('expense');
-  const [amountText, setAmountText] = useState('');
+  const [amountText, setAmountText] = useState(initialScan?.amount ? groupDigits(initialScan.amount) : '');
   const [categoryId, setCategoryId] = useState<number>();
   const [walletId, setWalletId] = useState<number>();
-  const [date, setDate] = useState(todayISO());
-  const [note, setNote] = useState('');
+  const [date, setDate] = useState(initialScan?.date ?? todayISO());
+  const [note, setNote] = useState(initialScan ? receiptNote(initialScan) : '');
+  const [receipt, setReceipt] = useState<string | null>(initialScan?.receipt ?? null);
+  // Suggestions from a scanned screenshot, used until the user picks a category / wallet.
+  const [categoryHint, setCategoryHint] = useState(initialScan?.categoryHint);
+  const [fromTransfer, setFromTransfer] = useState(initialScan != null);
+  const [scanStatus, setScanStatus] = useState<ScanStatus | undefined>(initialScan && scanStatusOf(initialScan));
+  const [scanning, setScanning] = useState(false);
+  const [viewingReceipt, setViewingReceipt] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const categories = useDbQuery((db) => listCategories(db), []);
@@ -66,18 +80,48 @@ export default function TransactionFormScreen() {
       setWalletId(tx.walletId);
       setDate(tx.date);
       setNote(tx.note);
+      setReceipt(tx.receipt);
       setLoaded(true);
     });
   }, [db, id, isNew]);
 
-  // New transactions default to the first wallet until the user picks one.
-  const selectedWalletId = walletId ?? wallets?.[0]?.id;
+  const selectedCategoryId =
+    categoryId ?? (categoryHint ? categories?.find((c) => c.type === type && c.name === categoryHint)?.id : undefined);
+  // New transactions default to the first wallet until the user picks one; bank transfers to a bank wallet.
+  const bankWalletId = fromTransfer ? wallets?.find((w) => w.icon === 'card')?.id : undefined;
+  const selectedWalletId = walletId ?? bankWalletId ?? wallets?.[0]?.id;
 
   const visibleCategories = categories?.filter((c) => c.type === type) ?? [];
 
   const changeType = (next: TransactionType) => {
     setType(next);
-    if (categories?.find((c) => c.id === categoryId)?.type !== next) setCategoryId(undefined);
+    if (categories?.find((c) => c.id === selectedCategoryId)?.type !== next) setCategoryId(undefined);
+  };
+
+  const scanReceipt = async () => {
+    setScanning(true);
+    try {
+      const result = await scanTransferReceipt();
+      if (!result) return;
+      setReceipt(result.receipt);
+      setScanStatus(scanStatusOf(result));
+      setFromTransfer(true);
+      if (result.amount) setAmountText(groupDigits(result.amount));
+      if (result.date) setDate(result.date);
+      const scannedNote = receiptNote(result);
+      if (scannedNote) setNote(scannedNote);
+      if (result.categoryHint) setCategoryHint(result.categoryHint);
+    } catch (error) {
+      console.error(error);
+      showMessage('Lỗi', 'Không mở được ảnh. Vui lòng thử lại.');
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const removeReceipt = () => {
+    setReceipt(null);
+    setScanStatus(undefined);
   };
 
   const save = async () => {
@@ -86,7 +130,7 @@ export default function TransactionFormScreen() {
       showMessage('Thiếu số tiền', 'Vui lòng nhập số tiền lớn hơn 0.');
       return;
     }
-    if (categoryId == null) {
+    if (selectedCategoryId == null) {
       showMessage('Thiếu danh mục', 'Vui lòng chọn một danh mục.');
       return;
     }
@@ -96,9 +140,18 @@ export default function TransactionFormScreen() {
     }
     setSaving(true);
     try {
-      const input = { type, amount, categoryId, walletId: selectedWalletId, date, note: note.trim() };
+      const input = {
+        type,
+        amount,
+        categoryId: selectedCategoryId,
+        walletId: selectedWalletId,
+        date,
+        note: note.trim(),
+        receipt,
+      };
       if (isNew) await createTransaction(db, input);
       else await updateTransaction(db, Number(id), input);
+      await cleanUpReceipts(db);
       notifyChanged();
       router.back();
     } catch (error) {
@@ -115,6 +168,7 @@ export default function TransactionFormScreen() {
       confirmText: 'Xóa',
       onConfirm: async () => {
         await deleteTransaction(db, Number(id));
+        await cleanUpReceipts(db);
         notifyChanged();
         router.back();
       },
@@ -146,6 +200,15 @@ export default function TransactionFormScreen() {
       />
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <ReceiptAttachment
+            receipt={receipt}
+            status={scanStatus}
+            scanning={scanning}
+            onScan={scanReceipt}
+            onView={() => setViewingReceipt(true)}
+            onRemove={removeReceipt}
+          />
+
           <View style={[styles.segment, { backgroundColor: theme.backgroundElement }]}>
             {(['expense', 'income'] as const).map((t) => (
               <Pressable
@@ -166,7 +229,7 @@ export default function TransactionFormScreen() {
               placeholder="0"
               placeholderTextColor={theme.textSecondary}
               keyboardType="number-pad"
-              autoFocus={isNew}
+              autoFocus={isNew && !initialScan}
               style={[styles.amountInput, { color: amountColor }]}
               accessibilityLabel="Số tiền"
             />
@@ -176,7 +239,7 @@ export default function TransactionFormScreen() {
           <ThemedText type="smallBold">Danh mục</ThemedText>
           <View style={styles.categoryGrid}>
             {visibleCategories.map((c) => {
-              const selected = c.id === categoryId;
+              const selected = c.id === selectedCategoryId;
               return (
                 <Pressable
                   key={c.id}
@@ -234,6 +297,10 @@ export default function TransactionFormScreen() {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+      <ReceiptViewer
+        uri={viewingReceipt && receipt ? receiptUri(receipt) : null}
+        onClose={() => setViewingReceipt(false)}
+      />
     </ThemedView>
   );
 }

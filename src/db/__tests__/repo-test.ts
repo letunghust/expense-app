@@ -12,10 +12,12 @@ import {
   deleteWallet,
   getDailyExpenses,
   getSummary,
+  getTransaction,
   getTotalBalance,
   getTotalsByCategory,
   listBudgets,
   listCategories,
+  listReceipts,
   listTransactions,
   listWallets,
   removeCategory,
@@ -77,7 +79,37 @@ describe('schema', () => {
   });
 });
 
+describe('schema', () => {
+  test('v1 databases gain the receipt column and keep their rows', async () => {
+    const { db, byName, cash } = await setup();
+    // Recreate the version 1 layout, as on phones that installed the first release.
+    await db.execAsync('ALTER TABLE transactions DROP COLUMN receipt; PRAGMA user_version = 1');
+    await db.runAsync(
+      "INSERT INTO transactions (type, amount, category_id, wallet_id, date) VALUES ('expense', 5000, ?, ?, '2026-10-01')",
+      byName('Ăn uống'),
+      cash
+    );
+    await migrateDbIfNeeded(db);
+    const [row] = await listTransactions(db, OCT);
+    expect(row).toMatchObject({ amount: 5000, receipt: null });
+  });
+});
+
 describe('repo', () => {
+  test('stores and lists receipts', async () => {
+    const { db, byName, cash } = await setup();
+    const food = byName('Ăn uống');
+    const withReceipt = await createTransaction(db, { type: 'expense', amount: 1000, categoryId: food, walletId: cash, date: '2026-10-01', note: '', receipt: 'a.jpg' });
+    const without = await createTransaction(db, { type: 'expense', amount: 2000, categoryId: food, walletId: cash, date: '2026-10-02', note: '' });
+    expect((await getTransaction(db, withReceipt))?.receipt).toBe('a.jpg');
+    expect((await getTransaction(db, without))?.receipt).toBeNull();
+    expect(await listReceipts(db)).toEqual(['a.jpg']);
+
+    await updateTransaction(db, without, { type: 'expense', amount: 2000, categoryId: food, walletId: cash, date: '2026-10-02', note: '', receipt: 'b.jpg' });
+    await updateTransaction(db, withReceipt, { type: 'expense', amount: 1000, categoryId: food, walletId: cash, date: '2026-10-01', note: '', receipt: null });
+    expect(await listReceipts(db)).toEqual(['b.jpg']);
+  });
+
   test('reports, balances and filters', async () => {
     const { db, byName, cash, bank } = await setup();
     const food = byName('Ăn uống');

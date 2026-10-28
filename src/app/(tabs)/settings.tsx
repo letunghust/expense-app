@@ -18,9 +18,10 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatDate, todayISO } from '@/lib/dates';
 import { toCsv } from '@/lib/csv';
 import { confirmDestructive, showMessage } from '@/lib/dialog';
-import { useAppLock } from '@/lock/app-lock-context';
+import { useAppLock, withAutoLockPaused } from '@/lock/app-lock-context';
 import { authenticateWithBiometrics, type BiometricSupport, getBiometricSupport } from '@/lock/biometrics';
 import { setBiometricsEnabled } from '@/lock/lock-store';
+import { cleanUpReceipts } from '@/receipts/scan';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
@@ -63,11 +64,13 @@ export default function SettingsScreen() {
         showMessage('Không thể chia sẻ', 'Thiết bị này không hỗ trợ chia sẻ tệp.');
         return;
       }
-      await Sharing.shareAsync(file.uri, {
-        mimeType: 'text/csv',
-        dialogTitle: 'Xuất dữ liệu chi tiêu',
-        UTI: 'public.comma-separated-values-text',
-      });
+      await withAutoLockPaused(() =>
+        Sharing.shareAsync(file.uri, {
+          mimeType: 'text/csv',
+          dialogTitle: 'Xuất dữ liệu chi tiêu',
+          UTI: 'public.comma-separated-values-text',
+        })
+      );
     } catch (error) {
       console.error(error);
       showMessage('Lỗi', 'Không xuất được tệp CSV.');
@@ -82,6 +85,7 @@ export default function SettingsScreen() {
       confirmText: 'Xóa tất cả',
       onConfirm: async () => {
         await deleteAllTransactions(db);
+        await cleanUpReceipts(db);
         notifyChanged();
       },
     });

@@ -25,6 +25,7 @@ export type Transaction = {
   walletId: number;
   date: string; // YYYY-MM-DD
   note: string;
+  receipt: string | null; // attached screenshot, see lib/receipt-files
 };
 
 /** A transaction joined with the category and wallet it belongs to, for display. */
@@ -35,7 +36,7 @@ export type TransactionRow = Transaction & {
   walletName: string;
 };
 
-export type TransactionInput = Omit<Transaction, 'id'>;
+export type TransactionInput = Omit<Transaction, 'id' | 'receipt'> & { receipt?: string | null };
 
 export type CategoryTotal = {
   categoryId: number;

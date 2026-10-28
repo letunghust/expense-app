@@ -10,6 +10,8 @@ Dữ liệu lưu offline trên điện thoại bằng SQLite, không cần tài 
 - **Ngân sách**: hạn mức hằng tháng cho từng danh mục; thanh tiến độ chuyển vàng khi tiêu tới 80% và đỏ khi vượt
 - **Ví**: nhiều ví (tiền mặt, ngân hàng…), mỗi ví có số dư ban đầu
 - **Danh mục**: 14 danh mục mặc định, tự tạo thêm với biểu tượng và màu riêng
+- **Quét ảnh chuyển khoản**: chọn ảnh chụp màn hình chuyển khoản/ví điện tử, app tự đọc số tiền, ngày, người nhận, nội dung và gợi ý danh mục rồi đính kèm ảnh vào giao dịch. Đọc chữ ngay trên điện thoại (ML Kit), ảnh không gửi đi đâu
+- **Khóa ứng dụng**: mã PIN 4 hoặc 6 số, mở khóa bằng vân tay/khuôn mặt, tự khóa khi rời app quá 30 giây
 - **Xuất CSV**: mở được bằng Excel, hiển thị đúng tiếng Việt
 - Chế độ sáng/tối theo hệ thống
 
@@ -23,6 +25,8 @@ Dữ liệu lưu offline trên điện thoại bằng SQLite, không cần tài 
    ```
 3. Mở Expo Go và quét mã QR hiện trong terminal. Điện thoại và máy tính phải dùng chung một mạng Wi-Fi.
    Nếu không kết nối được, chạy `npx expo start --tunnel`.
+
+Expo Go không có module đọc chữ (ML Kit) nên khi quét ảnh chỉ đính kèm ảnh, không tự điền. Muốn thử đầy đủ thì cài bản APK bên dưới.
 
 ## Build file cài đặt (APK) và bản iOS
 

@@ -12,6 +12,7 @@ import { createWallet, deleteWallet, listWallets, updateWallet } from '@/db/repo
 import { useTheme } from '@/hooks/use-theme';
 import { confirmDestructive, showMessage } from '@/lib/dialog';
 import { formatAmountInput, groupDigits, parseAmount } from '@/lib/money';
+import { cleanUpReceipts } from '@/receipts/scan';
 
 export default function WalletFormScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -60,6 +61,7 @@ export default function WalletFormScreen() {
       confirmText: 'Xóa',
       onConfirm: async () => {
         await deleteWallet(db, wallet.id);
+        await cleanUpReceipts(db);
         notifyChanged();
         router.back();
       },

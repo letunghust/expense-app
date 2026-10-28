@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 export const DATABASE_NAME = 'expenses.db';
 
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 
 const DEFAULT_CATEGORIES: [name: string, type: 'income' | 'expense', icon: string, color: string][] = [
   ['Ăn uống', 'expense', 'restaurant', '#F97316'],
@@ -87,6 +87,12 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       }
     });
     version = 1;
+  }
+
+  if (version === 1) {
+    // File name of the transfer screenshot attached to a transaction (see lib/receipt-files).
+    await db.execAsync('ALTER TABLE transactions ADD COLUMN receipt TEXT');
+    version = 2;
   }
 
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);

@@ -1,4 +1,4 @@
-import { AUTO_LOCK_AFTER_MS, isValidPin, lockoutMs, shouldLockOnResume } from '../app-lock';
+import { AUTO_LOCK_AFTER_MS, isValidPin, lockoutMs, shouldLockOnResume, SYSTEM_UI_AUTO_LOCK_AFTER_MS } from '../app-lock';
 
 describe('app lock rules', () => {
   test('isValidPin accepts only 4 or 6 digits', () => {
@@ -23,5 +23,8 @@ describe('app lock rules', () => {
     expect(shouldLockOnResume(null, 1_000_000)).toBe(false);
     expect(shouldLockOnResume(1_000_000, 1_000_000 + AUTO_LOCK_AFTER_MS - 1)).toBe(false);
     expect(shouldLockOnResume(1_000_000, 1_000_000 + AUTO_LOCK_AFTER_MS)).toBe(true);
+    // Longer grace while the photo picker or share sheet is open.
+    expect(shouldLockOnResume(1_000_000, 1_000_000 + AUTO_LOCK_AFTER_MS, SYSTEM_UI_AUTO_LOCK_AFTER_MS)).toBe(false);
+    expect(shouldLockOnResume(1_000_000, 1_000_000 + SYSTEM_UI_AUTO_LOCK_AFTER_MS, SYSTEM_UI_AUTO_LOCK_AFTER_MS)).toBe(true);
   });
 });

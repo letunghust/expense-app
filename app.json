@@ -57,6 +57,14 @@
         {
           "faceIDPermission": "Cho phép $(PRODUCT_NAME) dùng Face ID để mở khóa ứng dụng."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cho phép Chi Tiêu mở ảnh chụp màn hình chuyển khoản để tự điền giao dịch.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {

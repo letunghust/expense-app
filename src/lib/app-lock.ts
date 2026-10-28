@@ -5,6 +5,8 @@ export type PinLength = (typeof PIN_LENGTHS)[number];
 
 /** How long the app may stay in the background before it locks again. */
 export const AUTO_LOCK_AFTER_MS = 30_000;
+/** The same while a system screen the app opened (photo picker, share sheet) is in front. */
+export const SYSTEM_UI_AUTO_LOCK_AFTER_MS = 10 * 60_000;
 
 /** Wrong PIN attempts allowed before the keypad is temporarily disabled. */
 export const FREE_ATTEMPTS = 5;
@@ -24,6 +26,6 @@ export function lockoutMs(failures: number): number {
   return Math.min(BASE_LOCKOUT_MS * 2 ** (failures - FREE_ATTEMPTS), MAX_LOCKOUT_MS);
 }
 
-export function shouldLockOnResume(backgroundedAt: number | null, now: number): boolean {
-  return backgroundedAt != null && now - backgroundedAt >= AUTO_LOCK_AFTER_MS;
+export function shouldLockOnResume(backgroundedAt: number | null, now: number, lockAfterMs = AUTO_LOCK_AFTER_MS): boolean {
+  return backgroundedAt != null && now - backgroundedAt >= lockAfterMs;
 }
