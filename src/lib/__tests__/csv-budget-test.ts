@@ -1,5 +1,5 @@
 import { budgetStatus } from '../budget';
-import { escapeCsvCell, toCsv } from '../csv';
+import { escapeCsvCell, parseCsv, toCsv } from '../csv';
 
 describe('csv', () => {
   test('escapes only when needed', () => {
@@ -12,6 +12,23 @@ describe('csv', () => {
 
   test('toCsv adds BOM and CRLF', () => {
     expect(toCsv(['a', 'b'], [[1, 'x,y']])).toBe('﻿a,b\r\n1,"x,y"\r\n');
+  });
+
+  test('parseCsv reads back what toCsv writes', () => {
+    const rows = [
+      ['Ngày', 'Ghi chú'],
+      ['01/10/2026', 'a,b "c"\nd'],
+      ['02/10/2026', ''],
+    ];
+    expect(parseCsv(toCsv(rows[0], rows.slice(1)))).toEqual(rows);
+  });
+
+  test('parseCsv handles semicolons, LF and blank rows from Excel', () => {
+    expect(parseCsv('a;b\n1;"x;y"\n;\n\n2;z')).toEqual([
+      ['a', 'b'],
+      ['1', 'x;y'],
+      ['2', 'z'],
+    ]);
   });
 });
 

@@ -17,3 +17,12 @@ export function receiptUri(name: string): string {
 }
 
 export function pruneReceipts(_keep: string[]): void {}
+
+export async function readReceiptBase64(value: string): Promise<string | null> {
+  return value.startsWith('data:') ? value.slice(value.indexOf(',') + 1) : null;
+}
+
+export async function writeReceiptBase64(name: string, base64: string): Promise<string> {
+  const type = /\.png$/i.test(name) ? 'image/png' : 'image/jpeg';
+  return `data:${type};base64,${base64}`;
+}

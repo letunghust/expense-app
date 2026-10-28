@@ -1,11 +1,4 @@
-/// <reference types="node" />
-/**
- * Runs the real migrations and queries against an in-memory SQLite database
- * through node:sqlite, wrapped to look like expo-sqlite's async API.
- */
-import type { SQLiteDatabase } from 'expo-sqlite';
-import { DatabaseSync } from 'node:sqlite';
-
+/** Runs the real migrations and queries against an in-memory SQLite database. */
 import {
   createCategory,
   createTransaction,
@@ -25,37 +18,7 @@ import {
   updateTransaction,
 } from '../repo';
 import { migrateDbIfNeeded } from '../schema';
-
-type Params = unknown[];
-
-function bind(params: Params): any[] {
-  if (params.length === 1 && Array.isArray(params[0])) return params[0];
-  return params;
-}
-
-function openTestDb(): SQLiteDatabase {
-  const raw = new DatabaseSync(':memory:');
-  const db = {
-    execAsync: async (sql: string) => raw.exec(sql),
-    runAsync: async (sql: string, ...params: Params) => {
-      const result = raw.prepare(sql).run(...bind(params));
-      return { lastInsertRowId: Number(result.lastInsertRowid), changes: Number(result.changes) };
-    },
-    getAllAsync: async (sql: string, ...params: Params) => raw.prepare(sql).all(...bind(params)),
-    getFirstAsync: async (sql: string, ...params: Params) => raw.prepare(sql).get(...bind(params)) ?? null,
-    withTransactionAsync: async (task: () => Promise<void>) => {
-      raw.exec('BEGIN');
-      try {
-        await task();
-        raw.exec('COMMIT');
-      } catch (error) {
-        raw.exec('ROLLBACK');
-        throw error;
-      }
-    },
-  };
-  return db as unknown as SQLiteDatabase;
-}
+import { openTestDb } from '../__testutils__/test-db';
 
 const OCT = { start: '2026-10-01', end: '2026-11-01' };
 

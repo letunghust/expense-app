@@ -1,31 +1,155 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants from 'expo-constants';
-import { File, Paths } from 'expo-file-system';
 import { router } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import type { IconName } from '@/components/category-icon';
 import { Card } from '@/components/card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { type Backup, BackupError, createBackup, parseBackup, type ReceiptIO, restoreBackup } from '@/db/backup';
+import { CsvImportError, importTransactions, parseTransactionsCsv } from '@/db/csv-import';
 import { useNotifyDataChanged } from '@/db/data-context';
 import { deleteAllTransactions, listAllTransactions } from '@/db/repo';
+import { pickTextFile, shareTextFile, SharingUnavailableError } from '@/files/text-files';
 import { useTheme } from '@/hooks/use-theme';
-import { formatDate, todayISO } from '@/lib/dates';
 import { toCsv } from '@/lib/csv';
-import { confirmDestructive, showMessage } from '@/lib/dialog';
-import { useAppLock, withAutoLockPaused } from '@/lock/app-lock-context';
+import { formatDate, toISODate, todayISO } from '@/lib/dates';
+import { confirmAction, confirmDestructive, showMessage } from '@/lib/dialog';
+import { useAppLock } from '@/lock/app-lock-context';
 import { authenticateWithBiometrics, type BiometricSupport, getBiometricSupport } from '@/lock/biometrics';
 import { setBiometricsEnabled } from '@/lock/lock-store';
+import { readReceiptBase64, writeReceiptBase64 } from '@/receipts/receipt-files';
 import { cleanUpReceipts } from '@/receipts/scan';
+
+const receiptIO: ReceiptIO = { read: readReceiptBase64, write: writeReceiptBase64 };
+
+function shareError(error: unknown, fallback: string) {
+  if (error instanceof SharingUnavailableError) {
+    showMessage('Không thể chia sẻ', 'Thiết bị này không hỗ trợ chia sẻ tệp.');
+  } else {
+    console.error(error);
+    showMessage('Lỗi', fallback);
+  }
+}
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
   const notifyChanged = useNotifyDataChanged();
+  const theme = useTheme();
+  const [busy, setBusy] = useState<string | null>(null);
+
+  /** Runs a long data operation with a progress line, one at a time. */
+  const runBusy = async (label: string, task: () => Promise<void>) => {
+    if (busy) return;
+    setBusy(label);
+    try {
+      await task();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const backupAll = () =>
+    runBusy('Đang tạo bản sao lưu…', async () => {
+      try {
+        const backup = await createBackup(db, receiptIO);
+        await shareTextFile({
+          fileName: `chi-tieu-sao-luu-${todayISO()}.json`,
+          content: JSON.stringify(backup),
+          mimeType: 'application/json',
+          dialogTitle: 'Lưu bản sao lưu',
+        });
+      } catch (error) {
+        shareError(error, 'Không tạo được bản sao lưu.');
+      }
+    });
+
+  const restoreOrImport = async () => {
+    let picked: Awaited<ReturnType<typeof pickTextFile>>;
+    try {
+      picked = await pickTextFile();
+    } catch (error) {
+      console.error(error);
+      showMessage('Lỗi', 'Không mở được file.');
+      return;
+    }
+    if (!picked) return;
+    // Backups are JSON; anything else is treated as a CSV export.
+    if (picked.text.trimStart().startsWith('{')) confirmRestore(picked.text);
+    else confirmCsvImport(picked.text);
+  };
+
+  const confirmRestore = (text: string) => {
+    let backup: Backup;
+    try {
+      backup = parseBackup(text);
+    } catch (error) {
+      showMessage('Không khôi phục được', error instanceof BackupError ? error.message : 'File bị lỗi.');
+      return;
+    }
+    confirmDestructive({
+      title: 'Khôi phục từ bản sao lưu?',
+      message:
+        `Bản sao lưu ngày ${formatDate(toISODate(new Date(backup.exportedAt)))} có ${backup.transactions.length} giao dịch. ` +
+        'Toàn bộ dữ liệu hiện có trên máy này sẽ được thay bằng dữ liệu trong file.',
+      confirmText: 'Khôi phục',
+      onConfirm: () =>
+        runBusy('Đang khôi phục…', async () => {
+          try {
+            await restoreBackup(db, backup, receiptIO);
+            await cleanUpReceipts(db);
+            notifyChanged();
+            showMessage('Đã khôi phục', `Đã khôi phục ${backup.transactions.length} giao dịch.`);
+          } catch (error) {
+            console.error(error);
+            showMessage('Lỗi', 'Không khôi phục được. Dữ liệu hiện tại vẫn được giữ nguyên.');
+          }
+        }),
+    });
+  };
+
+  const confirmCsvImport = (text: string) => {
+    let parsed: ReturnType<typeof parseTransactionsCsv>;
+    try {
+      parsed = parseTransactionsCsv(text);
+    } catch (error) {
+      showMessage('Không nhập được', error instanceof CsvImportError ? error.message : 'File bị lỗi.');
+      return;
+    }
+    const { rows, invalidLines } = parsed;
+    if (rows.length === 0) {
+      showMessage('Không có giao dịch', 'Không tìm thấy giao dịch nào đọc được trong file.');
+      return;
+    }
+    confirmAction({
+      title: `Nhập ${rows.length} giao dịch từ CSV?`,
+      message: 'Giao dịch sẽ được thêm vào dữ liệu hiện có. Những giao dịch đã có sẵn trong ứng dụng sẽ được bỏ qua.',
+      confirmText: 'Nhập',
+      onConfirm: () =>
+        runBusy('Đang nhập dữ liệu…', async () => {
+          try {
+            const result = await importTransactions(db, rows);
+            notifyChanged();
+            const lines = [`Đã thêm ${result.added} giao dịch.`];
+            if (result.duplicates) lines.push(`Bỏ qua ${result.duplicates} giao dịch đã có.`);
+            if (invalidLines.length) {
+              const shown = invalidLines.slice(0, 5).join(', ');
+              lines.push(`${invalidLines.length} dòng không đọc được (dòng ${shown}${invalidLines.length > 5 ? '…' : ''}).`);
+            }
+            if (result.createdWallets.length) lines.push(`Ví mới: ${result.createdWallets.join(', ')}.`);
+            if (result.createdCategories.length) lines.push(`Danh mục mới: ${result.createdCategories.join(', ')}.`);
+            showMessage('Đã nhập xong', lines.join('\n'));
+          } catch (error) {
+            console.error(error);
+            showMessage('Lỗi', 'Không nhập được dữ liệu. Không có giao dịch nào được thêm.');
+          }
+        }),
+    });
+  };
 
   const exportCsv = async () => {
     try {
@@ -45,35 +169,14 @@ export default function SettingsScreen() {
           r.note,
         ])
       );
-      const fileName = `chi-tieu-${todayISO()}.csv`;
-      if (Platform.OS === 'web') {
-        // No share sheet in the browser: download the file instead.
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-        link.download = fileName;
-        link.click();
-        URL.revokeObjectURL(link.href);
-        return;
-      }
-      const file = new File(Paths.cache, fileName);
-      if (file.exists) file.delete();
-      file.create();
-      await file.write(csv);
-
-      if (!(await Sharing.isAvailableAsync())) {
-        showMessage('Không thể chia sẻ', 'Thiết bị này không hỗ trợ chia sẻ tệp.');
-        return;
-      }
-      await withAutoLockPaused(() =>
-        Sharing.shareAsync(file.uri, {
-          mimeType: 'text/csv',
-          dialogTitle: 'Xuất dữ liệu chi tiêu',
-          UTI: 'public.comma-separated-values-text',
-        })
-      );
+      await shareTextFile({
+        fileName: `chi-tieu-${todayISO()}.csv`,
+        content: csv,
+        mimeType: 'text/csv',
+        dialogTitle: 'Xuất dữ liệu chi tiêu',
+      });
     } catch (error) {
-      console.error(error);
-      showMessage('Lỗi', 'Không xuất được tệp CSV.');
+      shareError(error, 'Không xuất được tệp CSV.');
     }
   };
 
@@ -101,8 +204,20 @@ export default function SettingsScreen() {
         </Card>
 
         <Card style={styles.group}>
+          {busy && (
+            <View style={styles.row}>
+              <ActivityIndicator color={theme.tint} />
+              <ThemedText themeColor="textSecondary">{busy}</ThemedText>
+            </View>
+          )}
+          <SettingsRow icon="cloud-upload-outline" label="Sao lưu toàn bộ dữ liệu" onPress={backupAll} />
+          <SettingsRow icon="cloud-download-outline" label="Khôi phục hoặc nhập dữ liệu" onPress={restoreOrImport} />
           <SettingsRow icon="download-outline" label="Xuất dữ liệu ra CSV (Excel)" onPress={exportCsv} />
           <SettingsRow icon="trash-outline" label="Xóa toàn bộ giao dịch" destructive onPress={confirmDeleteAll} />
+          <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
+            Đổi điện thoại? Bấm Sao lưu, gửi file sang máy mới (Zalo, Drive, email…), rồi mở ứng dụng trên máy mới
+            và chọn Khôi phục. Cũng có thể nhập file CSV đã xuất trước đó.
+          </ThemedText>
         </Card>
 
         <ThemedText type="small" themeColor="textSecondary" style={styles.footer}>
