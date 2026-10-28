@@ -114,6 +114,60 @@ describe('parseTransferReceipt', () => {
     expect(result.date).toBe('2026-10-27');
   });
 
+  // Layout and OCR output of real Viettel Money screenshots (names changed).
+  const viettelMoney = (amount: string, name: string[], message: string[]) => [
+    ...row(306, 40, [232, 'Chuyển tiền thành công']),
+    ...row(388, 52, [308, amount]),
+    ...row(503, 25, [36, 'Tên người nhận']),
+    ...name.flatMap((part, i) => row(507 + i * 43, 25, [822 - part.length * 12.5, part])),
+    ...row(611, 25, [36, 'Tài khoản nhận'], [606, '01410305001']),
+    ...row(675, 25, [37, 'Ngân hàng nhận'], [668, '9TPBank']),
+    ...row(738, 26, [37, 'Nội dung giao dịch']),
+    ...message.flatMap((part, i) => row(741 + i * 43, 30, [822 - part.length * 15, part])),
+    ...row(900, 27, [36, 'Tên người chuyển'], [608, 'TRAN VAN BINH']),
+    ...row(963, 27, [36, 'Tài khoản chuyển'], [635, '¥ ViettelPay']),
+    ...row(1025, 27, [37, 'Số điện thoại chuyển'], [602, '0865-940-198']),
+    ...row(1090, 25, [37, 'Phí giao dịch'], [689, 'Miễn phí']),
+    ...row(1209, 25, [36, 'Thời gian'], [471, '24/10/2026 - 13:30:42']),
+    ...row(1271, 25, [37, 'Mã giao dịch'], [526, '261024594485803']),
+    ...row(1426, 26, [102, '1'], [209, '2'], [319, '3']),
+  ];
+
+  test('Viettel Money: the small "đ" after the amount is misread as a digit or letter', () => {
+    for (const [text, amount] of [
+      ['37.0004', 37_000],
+      ['66.000s', 66_000],
+      ['194.000đ', 194_000],
+    ] as const) {
+      const result = parseTransferReceipt(viettelMoney(text, ['LE THI MAI'], ['Tran Van Binh chuyen', 'khoan']), TODAY);
+      expect(result).toEqual({
+        amount,
+        date: '2026-10-24',
+        recipient: 'LE THI MAI',
+        content: undefined, // only the app's default message
+        categoryHint: undefined,
+      });
+    }
+  });
+
+  test('Viettel Money: wrapped name, and a real message without the sender name', () => {
+    const result = parseTransferReceipt(
+      viettelMoney('165.0004', ['NGUYEN THI THANH', 'HUONG'], ['Tran Van Binh tien tra sua', 'thu 4 GP-TH']),
+      TODAY
+    );
+    expect(result.amount).toBe(165_000);
+    expect(result.recipient).toBe('NGUYEN THI THANH HUONG');
+    expect(result.content).toBe('tien tra sua thu 4 GP-TH');
+    expect(result.categoryHint).toBe('Ăn uống');
+  });
+
+  test('default messages from an unknown sender are dropped', () => {
+    const lines = [...row(100, 30, [40, 'Nội dung: NGUYEN VAN B chuyen tien'])];
+    expect(parseTransferReceipt(lines, TODAY).content).toBeUndefined();
+    const kept = [...row(100, 30, [40, 'Nội dung: tien nha thang 10'])];
+    expect(parseTransferReceipt(kept, TODAY).content).toBe('tien nha thang 10');
+  });
+
   test('ignores codes, phone numbers, times and dates in the future', () => {
     const lines = [
       ...row(100, 30, [40, 'Mã GD: FT26301123456']),

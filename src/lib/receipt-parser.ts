@@ -45,6 +45,7 @@ const RECIPIENT_LABELS = [
   'recipient',
   'to',
 ];
+const SENDER_LABELS = ['ten nguoi chuyen', 'nguoi chuyen', 'ten nguoi gui', 'nguoi gui'];
 const CONTENT_LABELS = [
   'noi dung chuyen khoan',
   'noi dung chuyen tien',
@@ -64,8 +65,12 @@ const CONTENT_LABELS = [
 const OTHER_LABELS = [
   'so tai khoan',
   'tai khoan nguon',
+  'tai khoan chuyen',
   'tu tai khoan',
+  'so dien thoai',
   'ngan hang',
+  'ngan hang nhan',
+  'ngan hang huong',
   'ma giao dich',
   'ma tham chieu',
   'so tham chieu',
@@ -73,7 +78,17 @@ const OTHER_LABELS = [
   'ngay giao dich',
   'trang thai',
 ];
-const ALL_LABELS = [...AMOUNT_LABELS, ...NOT_AMOUNT_LABELS, ...RECIPIENT_LABELS, ...CONTENT_LABELS, ...OTHER_LABELS];
+const ALL_LABELS = [
+  ...AMOUNT_LABELS,
+  ...NOT_AMOUNT_LABELS,
+  ...RECIPIENT_LABELS,
+  ...SENDER_LABELS,
+  ...CONTENT_LABELS,
+  ...OTHER_LABELS,
+];
+
+/** What apps fill the message with when the user types nothing ("NGUYEN VAN A chuyen khoan"). */
+const DEFAULT_MESSAGES = ['chuyen khoan', 'chuyen tien', 'ck', 'chuyen'];
 
 /**
  * Keywords that suggest a default category. Matched as whole words against the
@@ -120,8 +135,13 @@ const CATEGORY_KEYWORDS: [category: string, keywords: string[]][] = [
   ['Giáo dục', ['hoc phi', 'tien hoc', 'khoa hoc', 'mua sach', 'fahasa', 'udemy', 'coursera']],
 ];
 
+/**
+ * An amount such as "1.250.000", "500,000.00 VND", "-50.000đ" or "VND 1,250,000".
+ * Apps often print a small "đ" glued to the number, which OCR reads as a
+ * stray letter ("66.000s") or digit ("37.0004"); both count as the currency sign.
+ */
 const MONEY =
-  /(?<![\d.,])([-−–+]?)\s?(\d{1,3}(?:([.,])\d{3})(?:\3\d{3})*|\d{4,12})(?!\d)(?:[.,]\d{1,2}(?!\d))?(?:\s*(vnđ|vnd|đồng|dong|đ|₫|d)(?!\p{L}))?/giu;
+  /(?<![\d.,])(?<sign>[-−–+]?)\s?(?<number>\d{1,3}(?:(?<separator>[.,])\d{3})(?:\k<separator>\d{3})*|\d{4,12})(?:(?<strayDigit>\d)(?!\d))?(?!\d)(?:[.,]\d{1,2}(?!\d))?(?:\s*(?<unit>vnđ|vnd|đồng|dong|đ|₫|d)(?!\p{L})|(?<strayLetter>\p{L})(?!\p{L}))?/giu;
 const CURRENCY_BEFORE = /(vnđ|vnd|₫)\s*$/iu;
 const MINUS_BEFORE = /[-−–]\s*(vnđ|vnd|₫)?\s*$/iu;
 
@@ -134,8 +154,10 @@ export function parseTransferReceipt(ocrLines: OcrLine[], today: string): Receip
     .filter((line) => line.text)
     .sort((a, b) => a.top - b.top || a.left - b.left);
 
-  const recipient = findLabeledValue(lines, RECIPIENT_LABELS, isName, false);
-  const content = findLabeledValue(lines, CONTENT_LABELS, (text) => /\p{L}/u.test(text), true);
+  const recipient = findLabeledValue(lines, RECIPIENT_LABELS, isName, isNameContinuation);
+  const sender = findLabeledValue(lines, SENDER_LABELS, isName, isNameContinuation);
+  const message = findLabeledValue(lines, CONTENT_LABELS, (text) => /\p{L}/u.test(text), () => true);
+  const content = message && meaningfulMessage(message, sender);
   return {
     amount: findAmount(lines),
     date: findDate(lines, today),
@@ -162,10 +184,12 @@ function findAmount(lines: OcrLine[]): number | undefined {
   const candidates: { value: number; score: number; line: OcrLine }[] = [];
   for (const line of lines) {
     for (const match of line.text.matchAll(MONEY)) {
-      const [, sign, number, separator, suffix] = match;
+      const { sign, number, separator, strayDigit, unit, strayLetter } = match.groups!;
+      // A digit glued to an ungrouped number is just part of a longer code.
+      if (strayDigit && !separator) continue;
       const value = Number(number.replace(/[.,]/g, ''));
       const before = line.text.slice(0, match.index);
-      const hasCurrency = Boolean(suffix) || CURRENCY_BEFORE.test(before);
+      const hasCurrency = Boolean(unit || strayLetter || strayDigit) || CURRENCY_BEFORE.test(before);
       // Ungrouped digit runs are usually account numbers, codes or years.
       if (!separator && !hasCurrency) continue;
       if (value < MIN_AMOUNT || value > MAX_AMOUNT) continue;
@@ -236,13 +260,13 @@ function makeDate(year: number, month: number, day: number): Date | undefined {
 /**
  * Value of the first line labelled with one of `labels`: the text after the
  * label on the same line, else the line to its right, else the line below.
- * With `wrap`, lines the value wrapped onto are joined to it.
+ * Lines the value wrapped onto are joined to it while `wraps` accepts them.
  */
 function findLabeledValue(
   lines: OcrLine[],
   labels: string[],
   accept: (text: string) => boolean,
-  wrap: boolean
+  wraps: (text: string) => boolean
 ): string | undefined {
   for (const line of lines) {
     const rest = matchLabel(line.text, labels);
@@ -254,9 +278,13 @@ function findLabeledValue(
     const value = valueFor(line, lines);
     if (!value) continue;
     const parts = [value, ...continuationsOf(value, lines)].map((l) => l.text);
+    if (accept(parts[0])) {
+      const end = parts.findIndex((part, i) => i > 0 && !wraps(part));
+      return parts.slice(0, end === -1 ? undefined : end).join(' ');
+    }
     // Some apps put the account number first and the name under it.
-    const accepted = accept(parts[0]) ? (wrap ? parts.join(' ') : parts[0]) : parts.slice(1).find(accept);
-    if (accepted) return accepted;
+    const name = parts.slice(1).find(accept);
+    if (name) return name;
   }
   return undefined;
 }
@@ -335,22 +363,25 @@ function overlaps(a: OcrLine, b: OcrLine, tolerance: number): boolean {
   return a.left <= b.right + tolerance && a.right >= b.left - tolerance;
 }
 
-/** Lines a long value wrapped onto: tightly below it and not starting a new labelled row. */
+/**
+ * Lines a long value wrapped onto: close below it and not the start of the
+ * next row, which would have its label to the left.
+ */
 function continuationsOf(value: OcrLine, lines: OcrLine[]): OcrLine[] {
   const result: OcrLine[] = [];
   let last = value;
   for (let i = 0; i < 2; i++) {
-    const next = below(last, lines, 0.6);
-    if (!next || isLabel(next) || hasLabelOnRow(next, lines)) break;
+    const next = below(last, lines, 1);
+    if (!next || isLabel(next) || hasTextOnLeft(next, lines)) break;
     result.push(next);
     last = next;
   }
   return result;
 }
 
-function hasLabelOnRow(line: OcrLine, lines: OcrLine[]): boolean {
+function hasTextOnLeft(line: OcrLine, lines: OcrLine[]): boolean {
   const h = height(line);
-  return lines.some((o) => o !== line && o.right <= line.left && Math.abs(centerY(o) - centerY(line)) <= h * 0.6 && isLabel(o));
+  return lines.some((o) => o !== line && o.right <= line.left && Math.abs(centerY(o) - centerY(line)) <= h * 0.6);
 }
 
 // ---------- Text helpers ----------
@@ -359,6 +390,33 @@ function isName(text: string): boolean {
   const letters = text.match(/\p{L}/gu)?.length ?? 0;
   const digits = text.match(/\d/g)?.length ?? 0;
   return letters >= 2 && letters > digits;
+}
+
+/** The rest of a person's or company's name that wrapped onto the next line ("HUONG"). */
+function isNameContinuation(text: string): boolean {
+  return /^[\p{L} .'&-]+$/u.test(text);
+}
+
+/**
+ * The message without the sender's name, or undefined when it is only the
+ * app's default text such as "LE VAN A chuyen khoan".
+ */
+function meaningfulMessage(message: string, sender: string | undefined): string | undefined {
+  let words = message.split(' ');
+  const senderWords = sender ? normalizeWords(sender).split(' ') : [];
+  const startsWithSender =
+    senderWords.length > 0 && senderWords.every((word, i) => normalizeWords(words[i] ?? '') === word);
+  if (startsWithSender) words = words.slice(senderWords.length);
+
+  const rest = normalizeWords(words.join(' '));
+  if (!rest || DEFAULT_MESSAGES.includes(rest)) return undefined;
+  // Unknown sender: a capitalised name followed by the default text.
+  const ending = DEFAULT_MESSAGES.find((d) => rest.endsWith(` ${d}`));
+  if (ending && !startsWithSender) {
+    const nameWords = words.slice(0, words.length - ending.split(' ').length);
+    if (nameWords.length <= 5 && nameWords.every((w) => /^\p{Lu}\p{L}*$/u.test(w))) return undefined;
+  }
+  return words.join(' ');
 }
 
 /** Drops account numbers and separators that OCR keeps next to the name. */

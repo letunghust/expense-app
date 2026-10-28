@@ -60,6 +60,7 @@ export default function TransactionFormScreen() {
   const [categoryHint, setCategoryHint] = useState(initialScan?.categoryHint);
   const [fromTransfer, setFromTransfer] = useState(initialScan != null);
   const [scanStatus, setScanStatus] = useState<ScanStatus | undefined>(initialScan && scanStatusOf(initialScan));
+  const [ocrText, setOcrText] = useState(initialScan?.ocrText);
   const [scanning, setScanning] = useState(false);
   const [viewingReceipt, setViewingReceipt] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -105,6 +106,7 @@ export default function TransactionFormScreen() {
       if (!result) return;
       setReceipt(result.receipt);
       setScanStatus(scanStatusOf(result));
+      setOcrText(result.ocrText);
       setFromTransfer(true);
       if (result.amount) setAmountText(groupDigits(result.amount));
       if (result.date) setDate(result.date);
@@ -122,6 +124,7 @@ export default function TransactionFormScreen() {
   const removeReceipt = () => {
     setReceipt(null);
     setScanStatus(undefined);
+    setOcrText(undefined);
   };
 
   const save = async () => {
@@ -203,6 +206,7 @@ export default function TransactionFormScreen() {
           <ReceiptAttachment
             receipt={receipt}
             status={scanStatus}
+            ocrText={ocrText}
             scanning={scanning}
             onScan={scanReceipt}
             onView={() => setViewingReceipt(true)}

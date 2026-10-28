@@ -14,6 +14,10 @@ export type ScanResult = ReceiptData & {
   receipt: string;
   /** False where text can't be read (web preview); the image is attached anyway. */
   ocrAvailable: boolean;
+  /** Text recognition threw; the user types the details instead. */
+  ocrFailed: boolean;
+  /** Everything OCR read, top to bottom, so misreads can be checked and reported. */
+  ocrText: string;
 };
 
 /**
@@ -29,15 +33,24 @@ export async function scanTransferReceipt(): Promise<ScanResult | null> {
   const { uri } = picked.assets[0];
   const receipt = await saveReceipt(uri);
   let data: ReceiptData = {};
+  let ocrText = '';
+  let ocrFailed = false;
   if (OCR_SUPPORTED) {
     try {
-      data = parseTransferReceipt(await readTextLines(uri), todayISO());
+      const lines = await readTextLines(uri);
+      ocrText = [...lines]
+        .sort((a, b) => a.top - b.top || a.left - b.left)
+        .map((line) => line.text)
+        .join('\n');
+      data = parseTransferReceipt(lines, todayISO());
     } catch (error) {
       // Still attach the image; the user types the details instead.
       console.warn('Text recognition failed', error);
+      ocrText = String(error);
+      ocrFailed = true;
     }
   }
-  return { ...data, receipt, ocrAvailable: OCR_SUPPORTED };
+  return { ...data, receipt, ocrAvailable: OCR_SUPPORTED, ocrFailed, ocrText };
 }
 
 /** Removes images left behind by deleted transactions, replaced images and abandoned scans. */
