@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.tung.chitieu'
+version = '1.0.0'
+
+android {
+  namespace "com.tung.chitieu.textrecognition"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+    consumerProguardFiles 'proguard-rules.pro'
+  }
+}
+
+dependencies {
+  // Latin-script model bundled in the APK, so recognition works offline from the first run.
+  implementation 'com.google.mlkit:text-recognition:16.0.1'
+}

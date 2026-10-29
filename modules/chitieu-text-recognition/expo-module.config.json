@@ -1,0 +1,6 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["com.tung.chitieu.textrecognition.TextRecognitionModule"]
+  }
+}
