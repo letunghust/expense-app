@@ -7,7 +7,7 @@ import { parseTransferReceipt, type ReceiptData } from '@/lib/receipt-parser';
 import { withAutoLockPaused } from '@/lock/app-lock-context';
 
 import { OCR_SUPPORTED, readTextLines } from './ocr';
-import { pruneReceipts, saveReceipt } from './receipt-files';
+import { pruneReceipts, receiptUri, saveReceipt } from './receipt-files';
 
 export type ScanResult = ReceiptData & {
   /** Stored image name, to save on the transaction. */
@@ -37,7 +37,8 @@ export async function scanTransferReceipt(): Promise<ScanResult | null> {
   let ocrFailed = false;
   if (OCR_SUPPORTED) {
     try {
-      const lines = await readTextLines(uri);
+      // Read the copy kept in app storage: the picker's cache file may already be gone.
+      const lines = await readTextLines(receiptUri(receipt));
       ocrText = [...lines]
         .sort((a, b) => a.top - b.top || a.left - b.left)
         .map((line) => line.text)
