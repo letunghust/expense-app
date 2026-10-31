@@ -140,8 +140,10 @@ const CATEGORY_KEYWORDS: [category: string, keywords: string[]][] = [
  * Apps often print a small "đ" glued to the number, which OCR reads as a
  * stray letter ("66.000s") or digit ("37.0004"); both count as the currency sign.
  */
+// Numbered groups only: Hermes on the phone returned no `groups` for named ones.
+// 1 sign, 2 number, 3 thousands separator, 4 stray digit, 5 unit, 6 stray letter.
 const MONEY =
-  /(?<![\d.,])(?<sign>[-−–+]?)\s?(?<number>\d{1,3}(?:(?<separator>[.,])\d{3})(?:\k<separator>\d{3})*|\d{4,12})(?:(?<strayDigit>\d)(?!\d))?(?!\d)(?:[.,]\d{1,2}(?!\d))?(?:\s*(?<unit>vnđ|vnd|đồng|dong|đ|₫|d)(?!\p{L})|(?<strayLetter>\p{L})(?!\p{L}))?/giu;
+  /(?<![\d.,])([-−–+]?)\s?(\d{1,3}(?:([.,])\d{3})(?:\3\d{3})*|\d{4,12})(?:(\d)(?!\d))?(?!\d)(?:[.,]\d{1,2}(?!\d))?(?:\s*(vnđ|vnd|đồng|dong|đ|₫|d)(?!\p{L})|(\p{L})(?!\p{L}))?/giu;
 const CURRENCY_BEFORE = /(vnđ|vnd|₫)\s*$/iu;
 const MINUS_BEFORE = /[-−–]\s*(vnđ|vnd|₫)?\s*$/iu;
 
@@ -183,8 +185,9 @@ export function guessCategory(text: string): string | undefined {
 function findAmount(lines: OcrLine[]): number | undefined {
   const candidates: { value: number; score: number; line: OcrLine }[] = [];
   for (const line of lines) {
-    for (const match of line.text.matchAll(MONEY)) {
-      const { sign, number, separator, strayDigit, unit, strayLetter } = match.groups!;
+    MONEY.lastIndex = 0;
+    for (let match = MONEY.exec(line.text); match; match = MONEY.exec(line.text)) {
+      const [, sign = '', number, separator, strayDigit, unit, strayLetter] = match;
       // A digit glued to an ungrouped number is just part of a longer code.
       if (strayDigit && !separator) continue;
       const value = Number(number.replace(/[.,]/g, ''));
