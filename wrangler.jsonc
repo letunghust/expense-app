@@ -1,0 +1,11 @@
+// The web/iPhone version: dist/ (from scripts/deploy-web.sh) on Cloudflare Workers Static Assets.
+// No Worker code; public/_headers sets the headers, every unknown path gets the single-page app.
+{
+  "$schema": "https://unpkg.com/wrangler@4/config-schema.json",
+  "name": "chi-tieu",
+  "compatibility_date": "2026-10-23",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

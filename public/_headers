@@ -1,4 +1,4 @@
-# Cloudflare Pages response headers.
+# Response headers on Cloudflare (Workers Static Assets, see wrangler.jsonc).
 # expo-sqlite on web needs SharedArrayBuffer, which needs cross-origin isolation.
 # require-corp (not credentialless) because Safari on iPhone only supports require-corp;
 # the only cross-origin files (Tesseract on cdn.jsdelivr.net) send CORS and CORP headers.
