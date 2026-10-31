@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <!-- viewport-fit=cover lets the app draw under the notch and home bar (safe-area insets handle the padding);
+         maximum-scale=1 stops iPhone Safari from zooming in when a text field gets focus. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+    <title>%WEB_TITLE%</title>
+    <meta name="description" content="Ghi chép thu chi cá nhân, dữ liệu lưu ngay trên máy của bạn." />
+
+    <!-- Installable app ("Thêm vào Màn hình chính" on iPhone) -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Chi Tiêu" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+        /* No rubber-band bounce of the whole page; lists still scroll. */
+        overscroll-behavior: none;
+        background-color: #ffffff;
+        -webkit-tap-highlight-color: transparent;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background-color: #000000;
+        }
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <noscript>Bạn cần bật JavaScript để dùng Chi Tiêu.</noscript>
+    <div id="root"></div>
+    <script>
+      // Offline support, except on the Metro dev server where caching would serve stale code.
+      if ('serviceWorker' in navigator && location.port !== '8081') {
+        addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+      }
+      // Ask the browser not to clear the app's data (the database lives in site storage).
+      if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    </script>
+  </body>
+</html>

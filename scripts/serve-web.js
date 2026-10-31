@@ -48,7 +48,7 @@ http
 
     res.writeHead(200, {
       'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream',
-      'Cross-Origin-Embedder-Policy': 'credentialless',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cache-Control': 'no-cache',
     });
