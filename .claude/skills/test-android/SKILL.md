@@ -28,7 +28,7 @@ APKs go to the scratchpad, not the repo).
      for testing only; the user still needs a real EAS build to update over their app.
 3. **Scan**: `adb logcat -c`, launch with
    `adb shell monkey -p com.tung.chitieu -c android.intent.category.LAUNCHER 1`, wait ~8 s, then
-   `scripts/ui.sh tapText "Quét ảnh chuyển khoản"`, wait ~5 s (the photo picker loads slowly), tap a
+   `scripts/ui.sh tapText "Quét ảnh chuyển khoản"`, wait ~8 s (the photo picker loads slowly; a tap before it is ready is silently lost), tap a
    thumbnail. Picker grid on the 1080×2400 screen: columns x = 180 / 540 / 900, rows y = 1584 / 1944.
 4. **Check**: wait ~10 s, then `scripts/ui.sh dump` (amount, date and note appear as text) or
    `scripts/ui.sh shot FILE.png` and look at it. Then `adb logcat -d | grep ReactNativeJS`:
