@@ -34,6 +34,13 @@
         background-color: #ffffff;
         -webkit-tap-highlight-color: transparent;
       }
+      /* Phones: no browser focus ring around text fields; the native app has none either. */
+      @media (pointer: coarse) {
+        input,
+        textarea {
+          outline: none;
+        }
+      }
       @media (prefers-color-scheme: dark) {
         body {
           background-color: #000000;
@@ -44,6 +51,11 @@
         display: flex;
         height: 100%;
         flex: 1;
+        /* Follows the visible area while the keyboard is open (see the script below). */
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
       }
     </style>
   </head>
@@ -58,6 +70,22 @@
       }
       // Ask the browser not to clear the app's data (the database lives in site storage).
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+      // When the on-screen keyboard opens, phones shrink only the visual viewport and pan it
+      // to the focused field, which left the app's header (or the whole app) off screen. Pin the
+      // app to the visible area instead, like a native app; src/lib/keyboard.web.ts then scrolls
+      // the focused field into view.
+      if (window.visualViewport) {
+        const viewport = window.visualViewport;
+        const root = document.getElementById('root');
+        const fit = () => {
+          if (viewport.scale > 1.01) return; // pinch-zoomed: leave the page alone
+          root.style.top = viewport.offsetTop + 'px';
+          root.style.height = viewport.height + 'px';
+        };
+        viewport.addEventListener('resize', fit);
+        viewport.addEventListener('scroll', fit);
+        fit();
+      }
     </script>
   </body>
 </html>

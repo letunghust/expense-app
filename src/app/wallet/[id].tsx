@@ -1,9 +1,10 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { Button, FormLabel, IconPicker, TextField } from '@/components/form';
+import { KeyboardAwareScrollView } from '@/components/keyboard-aware-scroll-view';
 import { ThemedView } from '@/components/themed-view';
 import { WALLET_ICONS } from '@/constants/palette';
 import { Spacing } from '@/constants/theme';
@@ -71,7 +72,7 @@ export default function WalletFormScreen() {
   return (
     <ThemedView style={styles.screen}>
       <Stack.Screen options={{ title: isNew ? 'Thêm ví' : 'Sửa ví' }} />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView contentContainerStyle={styles.content}>
         <FormLabel>Tên ví</FormLabel>
         <TextField
           value={name}
@@ -94,7 +95,7 @@ export default function WalletFormScreen() {
 
         <Button label={isNew ? 'Tạo ví' : 'Lưu thay đổi'} onPress={save} />
         {!isNew && <Button label="Xóa ví" variant="danger" onPress={confirmDelete} />}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </ThemedView>
   );
 }

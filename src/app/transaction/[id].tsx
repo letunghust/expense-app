@@ -2,20 +2,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/category-icon';
 import { Chip } from '@/components/chip';
 import { DateField } from '@/components/date-field';
+import { KeyboardAwareScrollView } from '@/components/keyboard-aware-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -201,106 +193,104 @@ export default function TransactionFormScreen() {
               ),
         }}
       />
-      <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <ReceiptAttachment
-            receipt={receipt}
-            status={scanStatus}
-            ocrText={ocrText}
-            scanning={scanning}
-            onScan={scanReceipt}
-            onView={() => setViewingReceipt(true)}
-            onRemove={removeReceipt}
-          />
+      <KeyboardAwareScrollView style={styles.screen} contentContainerStyle={styles.content}>
+        <ReceiptAttachment
+          receipt={receipt}
+          status={scanStatus}
+          ocrText={ocrText}
+          scanning={scanning}
+          onScan={scanReceipt}
+          onView={() => setViewingReceipt(true)}
+          onRemove={removeReceipt}
+        />
 
-          <View style={[styles.segment, { backgroundColor: theme.backgroundElement }]}>
-            {(['expense', 'income'] as const).map((t) => (
-              <Pressable
-                key={t}
-                onPress={() => changeType(t)}
-                style={[styles.segmentItem, type === t && { backgroundColor: t === 'income' ? theme.income : theme.expense }]}>
-                <ThemedText type="smallBold" style={type === t ? { color: theme.onTint } : undefined}>
-                  {t === 'expense' ? 'Chi tiêu' : 'Thu nhập'}
-                </ThemedText>
-              </Pressable>
-            ))}
-          </View>
-
-          <View style={[styles.amountBox, { borderBottomColor: amountColor }]}>
-            <TextInput
-              value={amountText}
-              onChangeText={(text) => setAmountText(formatAmountInput(text))}
-              placeholder="0"
-              placeholderTextColor={theme.textSecondary}
-              keyboardType="number-pad"
-              autoFocus={isNew && !initialScan}
-              style={[styles.amountInput, { color: amountColor }]}
-              accessibilityLabel="Số tiền"
-            />
-            <ThemedText style={[styles.currency, { color: amountColor }]}>₫</ThemedText>
-          </View>
-
-          <ThemedText type="smallBold">Danh mục</ThemedText>
-          <View style={styles.categoryGrid}>
-            {visibleCategories.map((c) => {
-              const selected = c.id === selectedCategoryId;
-              return (
-                <Pressable
-                  key={c.id}
-                  onPress={() => setCategoryId(c.id)}
-                  style={[
-                    styles.categoryItem,
-                    { borderColor: selected ? c.color : 'transparent' },
-                    selected && { backgroundColor: `${c.color}1A` },
-                  ]}>
-                  <CategoryIcon icon={c.icon} color={c.color} />
-                  <ThemedText type="small" numberOfLines={1} style={styles.categoryName}>
-                    {c.name}
-                  </ThemedText>
-                </Pressable>
-              );
-            })}
+        <View style={[styles.segment, { backgroundColor: theme.backgroundElement }]}>
+          {(['expense', 'income'] as const).map((t) => (
             <Pressable
-              onPress={() => router.push({ pathname: '/category/[id]', params: { id: 'new', type } })}
-              style={[styles.categoryItem, { borderColor: 'transparent' }]}>
-              <CategoryIcon icon="add" color={theme.textSecondary} />
-              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.categoryName}>
-                Thêm mới
+              key={t}
+              onPress={() => changeType(t)}
+              style={[styles.segmentItem, type === t && { backgroundColor: t === 'income' ? theme.income : theme.expense }]}>
+              <ThemedText type="smallBold" style={type === t ? { color: theme.onTint } : undefined}>
+                {t === 'expense' ? 'Chi tiêu' : 'Thu nhập'}
               </ThemedText>
             </Pressable>
-          </View>
+          ))}
+        </View>
 
-          <ThemedText type="smallBold">Ví</ThemedText>
-          <View style={styles.chips}>
-            {wallets.map((w) => (
-              <Chip key={w.id} label={w.name} selected={w.id === selectedWalletId} onPress={() => setWalletId(w.id)} />
-            ))}
-          </View>
+        <View style={[styles.amountBox, { borderBottomColor: amountColor }]}>
+          <TextInput
+            value={amountText}
+            onChangeText={(text) => setAmountText(formatAmountInput(text))}
+            placeholder="0"
+            placeholderTextColor={theme.textSecondary}
+            keyboardType="number-pad"
+            autoFocus={isNew && !initialScan}
+            style={[styles.amountInput, { color: amountColor }]}
+            accessibilityLabel="Số tiền"
+          />
+          <ThemedText style={[styles.currency, { color: amountColor }]}>₫</ThemedText>
+        </View>
 
-          <DateField value={date} onChange={setDate} />
-
-          <View style={[styles.noteRow, { borderBottomColor: theme.border }]}>
-            <Ionicons name="create-outline" size={22} color={theme.textSecondary} />
-            <TextInput
-              value={note}
-              onChangeText={setNote}
-              placeholder="Ghi chú (không bắt buộc)"
-              placeholderTextColor={theme.textSecondary}
-              style={[styles.noteInput, { color: theme.text }]}
-              maxLength={200}
-            />
-          </View>
-
+        <ThemedText type="smallBold">Danh mục</ThemedText>
+        <View style={styles.categoryGrid}>
+          {visibleCategories.map((c) => {
+            const selected = c.id === selectedCategoryId;
+            return (
+              <Pressable
+                key={c.id}
+                onPress={() => setCategoryId(c.id)}
+                style={[
+                  styles.categoryItem,
+                  { borderColor: selected ? c.color : 'transparent' },
+                  selected && { backgroundColor: `${c.color}1A` },
+                ]}>
+                <CategoryIcon icon={c.icon} color={c.color} />
+                <ThemedText type="small" numberOfLines={1} style={styles.categoryName}>
+                  {c.name}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
           <Pressable
-            onPress={save}
-            disabled={saving}
-            style={({ pressed }) => [styles.saveButton, { backgroundColor: theme.tint }, (pressed || saving) && styles.pressed]}>
-            <ThemedText type="smallBold" style={{ color: theme.onTint }}>
-              {isNew ? 'Lưu giao dịch' : 'Cập nhật'}
+            onPress={() => router.push({ pathname: '/category/[id]', params: { id: 'new', type } })}
+            style={[styles.categoryItem, { borderColor: 'transparent' }]}>
+            <CategoryIcon icon="add" color={theme.textSecondary} />
+            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.categoryName}>
+              Thêm mới
             </ThemedText>
           </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+
+        <ThemedText type="smallBold">Ví</ThemedText>
+        <View style={styles.chips}>
+          {wallets.map((w) => (
+            <Chip key={w.id} label={w.name} selected={w.id === selectedWalletId} onPress={() => setWalletId(w.id)} />
+          ))}
+        </View>
+
+        <DateField value={date} onChange={setDate} />
+
+        <View style={[styles.noteRow, { borderBottomColor: theme.border }]}>
+          <Ionicons name="create-outline" size={22} color={theme.textSecondary} />
+          <TextInput
+            value={note}
+            onChangeText={setNote}
+            placeholder="Ghi chú (không bắt buộc)"
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.noteInput, { color: theme.text }]}
+            maxLength={200}
+          />
+        </View>
+
+        <Pressable
+          onPress={save}
+          disabled={saving}
+          style={({ pressed }) => [styles.saveButton, { backgroundColor: theme.tint }, (pressed || saving) && styles.pressed]}>
+          <ThemedText type="smallBold" style={{ color: theme.onTint }}>
+            {isNew ? 'Lưu giao dịch' : 'Cập nhật'}
+          </ThemedText>
+        </Pressable>
+      </KeyboardAwareScrollView>
       <ReceiptViewer
         uri={viewingReceipt && receipt ? receiptUri(receipt) : null}
         onClose={() => setViewingReceipt(false)}

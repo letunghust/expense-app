@@ -1,10 +1,11 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/category-icon';
 import { Button, ColorPicker, FormLabel, IconPicker, TextField } from '@/components/form';
+import { KeyboardAwareScrollView } from '@/components/keyboard-aware-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '@/constants/palette';
@@ -64,7 +65,7 @@ export default function CategoryFormScreen() {
   return (
     <ThemedView style={styles.screen}>
       <Stack.Screen options={{ title: isNew ? 'Thêm danh mục' : 'Sửa danh mục' }} />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView contentContainerStyle={styles.content}>
         <View style={styles.preview}>
           <CategoryIcon icon={icon} color={color} size={64} />
           <ThemedText type="small" themeColor="textSecondary">
@@ -83,7 +84,7 @@ export default function CategoryFormScreen() {
 
         <Button label={isNew ? 'Tạo danh mục' : 'Lưu thay đổi'} onPress={save} />
         {!isNew && <Button label="Xóa danh mục" variant="danger" onPress={confirmDelete} />}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </ThemedView>
   );
 }
