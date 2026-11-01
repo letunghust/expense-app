@@ -7,6 +7,7 @@ import {
   monthRange,
   shiftMonth,
   toISODate,
+  yearRange,
 } from '../dates';
 
 describe('dates', () => {
@@ -23,6 +24,10 @@ describe('dates', () => {
 
   test('monthRange is half open', () => {
     expect(monthRange({ year: 2026, month: 12 })).toEqual({ start: '2026-12-01', end: '2027-01-01' });
+  });
+
+  test('yearRange is half open', () => {
+    expect(yearRange(2026)).toEqual({ start: '2026-01-01', end: '2027-01-01' });
   });
 
   test('daysInMonth handles leap years', () => {

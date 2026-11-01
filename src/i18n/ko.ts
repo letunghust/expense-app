@@ -20,6 +20,7 @@ export const ko: Strings = {
     today: '오늘',
     yesterday: '어제',
     month: (month: number, year: number) => `${year}년 ${month}월`,
+    year: (year: number) => `${year}년`,
     date: (day: string, month: string, year: string) => `${year}. ${month}. ${day}.`,
     dayHeader: (weekday: string, date: string) => `${date} ${weekday}`,
     thousandsSeparator: ',',
@@ -67,8 +68,12 @@ export const ko: Strings = {
     net: '차액',
     byCategory: '카테고리별 지출',
     noExpenses: '이번 달 지출이 아직 없습니다',
+    noExpensesYear: '올해 지출이 아직 없습니다',
     totalSpent: '총 지출',
     byDay: '일별 지출',
+    byMonth: '월별 지출',
+    periodMonth: '월간',
+    periodYear: '연간',
     highest: (amount: string) => `최고: ${amount}`,
     recent: '최근 거래',
     seeAll: '모두 보기',
@@ -80,6 +85,9 @@ export const ko: Strings = {
     previous: '이전 달',
     next: '다음 달',
     backToCurrent: '이번 달로',
+    previousYear: '이전 연도',
+    nextYear: '다음 연도',
+    backToCurrentYear: '올해로',
   },
 
   fab: {
@@ -94,6 +102,8 @@ export const ko: Strings = {
     emptyMonth: '이번 달 거래가 없습니다',
     emptyMonthHint: '+ 버튼을 눌러 수입이나 지출을 추가하세요.',
     hasReceipt: '이체 화면 있음',
+    incomeTotal: (amount: string) => `수입: ${amount}`,
+    expenseTotal: (amount: string) => `지출: ${amount}`,
   },
 
   budgets: {

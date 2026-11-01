@@ -4,11 +4,12 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AddTransactionButton } from '@/components/fab';
 import { Card } from '@/components/card';
+import { BarChart, dayLabel } from '@/components/bar-chart';
 import { CategoryIcon } from '@/components/category-icon';
-import { DailyBarChart } from '@/components/daily-bar-chart';
+import { Chip } from '@/components/chip';
 import { DonutChart } from '@/components/donut-chart';
 import { EmptyState } from '@/components/empty-state';
-import { MonthSwitcher } from '@/components/month-switcher';
+import { MonthSwitcher, YearSwitcher } from '@/components/month-switcher';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { TransactionItem } from '@/components/transaction-item';
@@ -16,6 +17,7 @@ import { Spacing } from '@/constants/theme';
 import { useDbQuery } from '@/db/data-context';
 import {
   getDailyExpenses,
+  getMonthlyExpenses,
   getSummary,
   getTotalBalance,
   getTotalsByCategory,
@@ -23,30 +25,40 @@ import {
 } from '@/db/repo';
 import { useStrings } from '@/i18n';
 import { categoryLabel } from '@/i18n/defaults';
-import { currentYearMonth, daysInMonth, monthRange } from '@/lib/dates';
+import { currentYearMonth, daysInMonth, monthRange, yearRange } from '@/lib/dates';
 import { formatCompactVND, formatVND } from '@/lib/money';
 
 const RECENT_COUNT = 5;
+const monthLabel = (i: number) => String(i + 1);
+
+type Period = 'month' | 'year';
 
 export default function OverviewScreen() {
   const t = useStrings();
+  const [period, setPeriod] = useState<Period>('month');
+  // The year view shows `month.year`, so switching back to the month view keeps the month.
   const [month, setMonth] = useState(currentYearMonth());
-  const range = monthRange(month);
+  const isYear = period === 'year';
+  const range = isYear ? yearRange(month.year) : monthRange(month);
 
   const data = useDbQuery(
     async (db) => {
-      const [summary, byCategory, daily, balance, recent] = await Promise.all([
+      const [summary, byCategory, bars, balance, recent] = await Promise.all([
         getSummary(db, range),
         getTotalsByCategory(db, range, 'expense'),
-        getDailyExpenses(db, range),
+        isYear ? getMonthlyExpenses(db, range) : getDailyExpenses(db, range),
         getTotalBalance(db),
         listRecentTransactions(db, RECENT_COUNT),
       ]);
-      const dailyTotals = new Array<number>(daysInMonth(month)).fill(0);
-      for (const row of daily) dailyTotals[Number(row.date.slice(8, 10)) - 1] = row.total;
-      return { summary, byCategory, dailyTotals, balance, recent };
+      // One bar per month of the year, or per day of the month; keys are "YYYY-MM" or "YYYY-MM-DD".
+      const barTotals = new Array<number>(isYear ? 12 : daysInMonth(month)).fill(0);
+      for (const row of bars) {
+        const key = 'month' in row ? row.month.slice(5, 7) : row.date.slice(8, 10);
+        barTotals[Number(key) - 1] = row.total;
+      }
+      return { summary, byCategory, barTotals, balance, recent };
     },
-    [range.start]
+    [range.start, range.end]
   );
 
   const openTransactions = (categoryId?: number) =>
@@ -58,7 +70,15 @@ export default function OverviewScreen() {
   return (
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <MonthSwitcher value={month} onChange={setMonth} />
+        <View style={styles.periods}>
+          <Chip label={t.home.periodMonth} selected={!isYear} onPress={() => setPeriod('month')} />
+          <Chip label={t.home.periodYear} selected={isYear} onPress={() => setPeriod('year')} />
+        </View>
+        {isYear ? (
+          <YearSwitcher value={month.year} onChange={(year) => setMonth({ ...month, year })} />
+        ) : (
+          <MonthSwitcher value={month} onChange={setMonth} />
+        )}
 
         {data && (
           <>
@@ -81,7 +101,7 @@ export default function OverviewScreen() {
             <Card>
               <ThemedText type="smallBold">{t.home.byCategory}</ThemedText>
               {data.byCategory.length === 0 ? (
-                <EmptyState icon="pie-chart-outline" title={t.home.noExpenses} />
+                <EmptyState icon="pie-chart-outline" title={isYear ? t.home.noExpensesYear : t.home.noExpenses} />
               ) : (
                 <>
                   <View style={styles.donut}>
@@ -92,7 +112,12 @@ export default function OverviewScreen() {
                     />
                   </View>
                   {data.byCategory.map((c) => (
-                    <Pressable key={c.categoryId} style={styles.legendRow} onPress={() => openTransactions(c.categoryId)}>
+                    // The transactions screen lists one month at a time, so only the month view links there.
+                    <Pressable
+                      key={c.categoryId}
+                      style={styles.legendRow}
+                      disabled={isYear}
+                      onPress={() => openTransactions(c.categoryId)}>
                       <CategoryIcon icon={c.icon} color={c.color} size={32} />
                       <ThemedText style={styles.flex} numberOfLines={1}>
                         {categoryLabel(c.name)}
@@ -110,8 +135,19 @@ export default function OverviewScreen() {
             </Card>
 
             <Card>
-              <ThemedText type="smallBold">{t.home.byDay}</ThemedText>
-              <DailyBarChart totals={data.dailyTotals} />
+              <ThemedText type="smallBold">{isYear ? t.home.byMonth : t.home.byDay}</ThemedText>
+              {isYear ? (
+                <BarChart
+                  totals={data.barTotals}
+                  labelFor={monthLabel}
+                  onPressBar={(i) => {
+                    setMonth({ year: month.year, month: i + 1 });
+                    setPeriod('month');
+                  }}
+                />
+              ) : (
+                <BarChart totals={data.barTotals} labelFor={dayLabel} />
+              )}
             </Card>
 
             <Card>
@@ -170,6 +206,11 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     paddingBottom: 100,
     gap: Spacing.three,
+  },
+  periods: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.two,
   },
   balance: {
     fontSize: 28,

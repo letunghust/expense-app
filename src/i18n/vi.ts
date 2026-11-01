@@ -23,6 +23,7 @@ export const vi = {
     today: 'Hôm nay',
     yesterday: 'Hôm qua',
     month: (month: number, year: number) => `Tháng ${month}/${year}`,
+    year: (year: number) => `Năm ${year}`,
     date: (day: string, month: string, year: string) => `${day}/${month}/${year}`,
     dayHeader: (weekday: string, date: string) => `${weekday}, ${date}`,
     thousandsSeparator: '.',
@@ -71,8 +72,12 @@ export const vi = {
     net: 'Chênh lệch',
     byCategory: 'Chi tiêu theo danh mục',
     noExpenses: 'Chưa có khoản chi nào trong tháng',
+    noExpensesYear: 'Chưa có khoản chi nào trong năm',
     totalSpent: 'Tổng chi',
     byDay: 'Chi tiêu theo ngày',
+    byMonth: 'Chi tiêu theo tháng',
+    periodMonth: 'Tháng',
+    periodYear: 'Năm',
     highest: (amount: string) => `Cao nhất: ${amount}`,
     recent: 'Giao dịch gần đây',
     seeAll: 'Xem tất cả',
@@ -84,6 +89,9 @@ export const vi = {
     previous: 'Tháng trước',
     next: 'Tháng sau',
     backToCurrent: 'Về tháng này',
+    previousYear: 'Năm trước',
+    nextYear: 'Năm sau',
+    backToCurrentYear: 'Về năm nay',
   },
 
   fab: {
@@ -98,6 +106,8 @@ export const vi = {
     emptyMonth: 'Tháng này chưa có giao dịch',
     emptyMonthHint: 'Bấm nút + để thêm khoản thu hoặc chi.',
     hasReceipt: 'Có ảnh chuyển khoản',
+    incomeTotal: (amount: string) => `Thu: ${amount}`,
+    expenseTotal: (amount: string) => `Chi: ${amount}`,
   },
 
   budgets: {

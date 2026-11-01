@@ -255,6 +255,17 @@ export function getDailyExpenses(db: SQLiteDatabase, range: DateRange): Promise<
   );
 }
 
+/** Spending per month in the range, as "YYYY-MM" keys; months without spending are left out. */
+export function getMonthlyExpenses(db: SQLiteDatabase, range: DateRange): Promise<{ month: string; total: number }[]> {
+  return db.getAllAsync<{ month: string; total: number }>(
+    `SELECT substr(date, 1, 7) AS month, SUM(amount) AS total FROM transactions
+     WHERE type = 'expense' AND date >= ? AND date < ?
+     GROUP BY month ORDER BY month`,
+    range.start,
+    range.end
+  );
+}
+
 export async function getTotalBalance(db: SQLiteDatabase): Promise<number> {
   const row = await db.getFirstAsync<{ total: number | null }>(`
     SELECT (SELECT COALESCE(SUM(initial_balance), 0) FROM wallets)

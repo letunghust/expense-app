@@ -113,10 +113,10 @@ export default function TransactionsScreen() {
         </View>
         <View style={styles.totals}>
           <ThemedText type="small" themeColor="income">
-            Thu: {formatVND(income)}
+            {t.transactions.incomeTotal(formatVND(income))}
           </ThemedText>
           <ThemedText type="small" themeColor="expense">
-            Chi: {formatVND(expense)}
+            {t.transactions.expenseTotal(formatVND(expense))}
           </ThemedText>
         </View>
       </View>

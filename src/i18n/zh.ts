@@ -21,6 +21,7 @@ export const zh: Strings = {
     today: '今天',
     yesterday: '昨天',
     month: (month: number, year: number) => `${year}年${month}月`,
+    year: (year: number) => `${year}年`,
     date: (day: string, month: string, year: string) => `${year}/${month}/${day}`,
     dayHeader: (weekday: string, date: string) => `${date} ${weekday}`,
     thousandsSeparator: ',',
@@ -68,8 +69,12 @@ export const zh: Strings = {
     net: '结余',
     byCategory: '按分类支出',
     noExpenses: '本月还没有支出',
+    noExpensesYear: '今年还没有支出',
     totalSpent: '总支出',
     byDay: '每日支出',
+    byMonth: '每月支出',
+    periodMonth: '按月',
+    periodYear: '按年',
     highest: (amount: string) => `最高：${amount}`,
     recent: '最近交易',
     seeAll: '查看全部',
@@ -81,6 +86,9 @@ export const zh: Strings = {
     previous: '上个月',
     next: '下个月',
     backToCurrent: '回到本月',
+    previousYear: '上一年',
+    nextYear: '下一年',
+    backToCurrentYear: '回到今年',
   },
 
   fab: {
@@ -95,6 +103,8 @@ export const zh: Strings = {
     emptyMonth: '本月还没有交易',
     emptyMonthHint: '点击 + 添加收入或支出。',
     hasReceipt: '附有转账截图',
+    incomeTotal: (amount: string) => `收入: ${amount}`,
+    expenseTotal: (amount: string) => `支出: ${amount}`,
   },
 
   budgets: {

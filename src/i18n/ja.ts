@@ -20,6 +20,7 @@ export const ja: Strings = {
     today: '今日',
     yesterday: '昨日',
     month: (month: number, year: number) => `${year}年${month}月`,
+    year: (year: number) => `${year}年`,
     date: (day: string, month: string, year: string) => `${year}/${month}/${day}`,
     dayHeader: (weekday: string, date: string) => `${date}（${weekday}）`,
     thousandsSeparator: ',',
@@ -67,8 +68,12 @@ export const ja: Strings = {
     net: '収支',
     byCategory: 'カテゴリ別の支出',
     noExpenses: '今月の支出はまだありません',
+    noExpensesYear: '今年の支出はまだありません',
     totalSpent: '支出合計',
     byDay: '日別の支出',
+    byMonth: '月別の支出',
+    periodMonth: '月間',
+    periodYear: '年間',
     highest: (amount: string) => `最高：${amount}`,
     recent: '最近の取引',
     seeAll: 'すべて表示',
@@ -80,6 +85,9 @@ export const ja: Strings = {
     previous: '前の月',
     next: '次の月',
     backToCurrent: '今月に戻る',
+    previousYear: '前の年',
+    nextYear: '次の年',
+    backToCurrentYear: '今年に戻る',
   },
 
   fab: {
@@ -94,6 +102,8 @@ export const ja: Strings = {
     emptyMonth: '今月の取引はありません',
     emptyMonthHint: '+ ボタンで収入や支出を追加しましょう。',
     hasReceipt: '振込画面あり',
+    incomeTotal: (amount: string) => `収入: ${amount}`,
+    expenseTotal: (amount: string) => `支出: ${amount}`,
   },
 
   budgets: {

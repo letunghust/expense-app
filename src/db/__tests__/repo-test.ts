@@ -4,6 +4,7 @@ import {
   createTransaction,
   deleteWallet,
   getDailyExpenses,
+  getMonthlyExpenses,
   getSummary,
   getTransaction,
   getTotalBalance,
@@ -98,6 +99,12 @@ describe('repo', () => {
     expect(await getDailyExpenses(db, OCT)).toEqual([
       { date: '2026-10-05', total: 50_000 },
       { date: '2026-10-20', total: 150_000 },
+    ]);
+
+    expect(await getMonthlyExpenses(db, { start: '2026-01-01', end: '2027-01-01' })).toEqual([
+      { month: '2026-09', total: 999 },
+      { month: '2026-10', total: 200_000 },
+      { month: '2026-11', total: 888 },
     ]);
 
     const wallets = await listWallets(db);

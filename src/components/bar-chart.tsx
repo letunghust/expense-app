@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
@@ -7,12 +7,27 @@ import { formatCompactVND } from '@/lib/money';
 
 const LABELLED_DAYS = new Set([1, 5, 10, 15, 20, 25]);
 
-/** One bar per day of the month; `totals[i]` is the spending on day i + 1. */
-export function DailyBarChart({ totals, height = 120 }: { totals: number[]; height?: number }) {
+/** Day of the month under bar i, for a few days only so the labels fit. */
+export const dayLabel = (i: number, count: number) => (LABELLED_DAYS.has(i + 1) || i + 1 === count ? String(i + 1) : null);
+
+/**
+ * Spending bars; `totals[i]` is bar i. `labelFor` returns the text under a bar (null for none),
+ * `onPressBar` makes the bars tappable.
+ */
+export function BarChart({
+  totals,
+  labelFor,
+  onPressBar,
+  height = 120,
+}: {
+  totals: number[];
+  labelFor: (i: number, count: number) => string | null;
+  onPressBar?: (i: number) => void;
+  height?: number;
+}) {
   const theme = useTheme();
   const t = useStrings();
   const max = Math.max(...totals, 0);
-  const lastDay = totals.length;
 
   return (
     <View style={styles.container}>
@@ -21,7 +36,7 @@ export function DailyBarChart({ totals, height = 120 }: { totals: number[]; heig
       </ThemedText>
       <View style={[styles.bars, { height }]}>
         {totals.map((total, i) => (
-          <View key={i} style={styles.barSlot}>
+          <Pressable key={i} style={styles.barSlot} disabled={!onPressBar} onPress={() => onPressBar?.(i)}>
             <View
               style={[
                 styles.bar,
@@ -31,19 +46,22 @@ export function DailyBarChart({ totals, height = 120 }: { totals: number[]; heig
                 },
               ]}
             />
-          </View>
+          </Pressable>
         ))}
       </View>
       <View style={styles.labels}>
-        {totals.map((_, i) => (
-          <View key={i} style={styles.labelSlot}>
-            {(LABELLED_DAYS.has(i + 1) || i + 1 === lastDay) && (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
-                {i + 1}
-              </ThemedText>
-            )}
-          </View>
-        ))}
+        {totals.map((_, i) => {
+          const label = labelFor(i, totals.length);
+          return (
+            <View key={i} style={styles.labelSlot}>
+              {label != null && (
+                <ThemedText type="small" themeColor="textSecondary" style={styles.label}>
+                  {label}
+                </ThemedText>
+              )}
+            </View>
+          );
+        })}
       </View>
     </View>
   );
@@ -64,6 +82,7 @@ const styles = StyleSheet.create({
   },
   barSlot: {
     flex: 1,
+    alignSelf: 'stretch',
     justifyContent: 'flex-end',
   },
   bar: {

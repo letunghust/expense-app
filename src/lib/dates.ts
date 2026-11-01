@@ -41,6 +41,11 @@ export function monthRange(ym: YearMonth): { start: string; end: string } {
   };
 }
 
+/** Half-open range [start, end) covering the whole year. */
+export function yearRange(year: number): { start: string; end: string } {
+  return { start: `${year}-01-01`, end: `${year + 1}-01-01` };
+}
+
 export function daysInMonth({ year, month }: YearMonth): number {
   return new Date(year, month, 0).getDate();
 }
@@ -52,6 +57,11 @@ export function isSameMonth(a: YearMonth, b: YearMonth): boolean {
 /** "Tháng 10/2026", "October 2026", "2026年10月"… */
 export function formatMonth({ year, month }: YearMonth): string {
   return strings().format.month(month, year);
+}
+
+/** "Năm 2026", "2026", "2026年"… */
+export function formatYear(year: number): string {
+  return strings().format.year(year);
 }
 
 /** "2026-10-27" -> "27/10/2026" in Vietnamese, "2026/10/27" in Japanese… */

@@ -23,6 +23,7 @@ export const en: Strings = {
     yesterday: 'Yesterday',
     month: (month: number, year: number) =>
       `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][month - 1]} ${year}`,
+    year: (year: number) => `${year}`,
     date: (day: string, month: string, year: string) => `${day}/${month}/${year}`,
     dayHeader: (weekday: string, date: string) => `${weekday}, ${date}`,
     thousandsSeparator: ',',
@@ -70,8 +71,12 @@ export const en: Strings = {
     net: 'Net',
     byCategory: 'Spending by category',
     noExpenses: 'No expenses this month yet',
+    noExpensesYear: 'No expenses this year yet',
     totalSpent: 'Total spent',
     byDay: 'Spending by day',
+    byMonth: 'Spending by month',
+    periodMonth: 'Month',
+    periodYear: 'Year',
     highest: (amount: string) => `Highest: ${amount}`,
     recent: 'Recent transactions',
     seeAll: 'See all',
@@ -83,6 +88,9 @@ export const en: Strings = {
     previous: 'Previous month',
     next: 'Next month',
     backToCurrent: 'Back to this month',
+    previousYear: 'Previous year',
+    nextYear: 'Next year',
+    backToCurrentYear: 'Back to this year',
   },
 
   fab: {
@@ -97,6 +105,8 @@ export const en: Strings = {
     emptyMonth: 'No transactions this month',
     emptyMonthHint: 'Tap + to add income or an expense.',
     hasReceipt: 'Has a transfer screenshot',
+    incomeTotal: (amount: string) => `Income: ${amount}`,
+    expenseTotal: (amount: string) => `Expense: ${amount}`,
   },
 
   budgets: {
