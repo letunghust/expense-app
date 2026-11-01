@@ -1,5 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { strings } from '@/i18n';
+
 /**
  * Full backup of everything the user entered: wallets, categories (archived
  * ones too, since old transactions use them), transactions, budgets and the
@@ -76,14 +78,14 @@ export function parseBackup(text: string): Backup {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new BackupError('File không đúng định dạng sao lưu.');
+    throw new BackupError(strings().files.backupInvalid);
   }
-  if (data?.format !== BACKUP_FORMAT) throw new BackupError('Đây không phải file sao lưu của Chi Tiêu.');
+  if (data?.format !== BACKUP_FORMAT) throw new BackupError(strings().files.notBackup);
   if ((data.version ?? 0) > BACKUP_VERSION) {
-    throw new BackupError('File sao lưu được tạo từ phiên bản mới hơn. Hãy cập nhật ứng dụng rồi thử lại.');
+    throw new BackupError(strings().files.backupTooNew);
   }
   for (const key of ['wallets', 'categories', 'transactions', 'budgets'] as const) {
-    if (!Array.isArray(data[key])) throw new BackupError('File sao lưu bị thiếu dữ liệu.');
+    if (!Array.isArray(data[key])) throw new BackupError(strings().files.backupIncomplete);
   }
   return { receipts: {}, ...data } as Backup;
 }

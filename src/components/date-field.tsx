@@ -5,17 +5,19 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
 import { formatDayHeader, fromISODate, toISODate } from '@/lib/dates';
 
 /** Date input for a "YYYY-MM-DD" value: native dialog on Android, compact inline picker on iOS. */
 export function DateField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const theme = useTheme();
+  const t = useStrings();
 
   if (Platform.OS === 'ios') {
     return (
       <View style={styles.row}>
         <Ionicons name="calendar-outline" size={22} color={theme.textSecondary} />
-        <ThemedText style={styles.text}>Ngày</ThemedText>
+        <ThemedText style={styles.text}>{t.common.date}</ThemedText>
         <DateTimePicker
           value={fromISODate(value)}
           mode="date"

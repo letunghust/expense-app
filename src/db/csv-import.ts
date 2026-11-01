@@ -1,6 +1,8 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { CATEGORY_COLORS } from '@/constants/palette';
+import { LANGUAGES, strings, stringsFor } from '@/i18n';
+import { storedCategoryName, storedWalletName } from '@/i18n/defaults';
 import { parseCsv } from '@/lib/csv';
 import { normalizeForSearch } from '@/lib/search';
 
@@ -33,15 +35,18 @@ export type CsvImportResult = {
 
 export class CsvImportError extends Error {}
 
-// Column headers as written by the CSV export, compared without diacritics.
+// Column headers as written by the CSV export in any app language, compared without diacritics.
+const headersAt = (index: number) => LANGUAGES.map((language) => normalizeForSearch(stringsFor(language).files.csvHeaders[index]));
 const COLUMNS = {
-  date: ['ngay', 'date'],
-  type: ['loai', 'type'],
-  category: ['danh muc', 'category'],
-  wallet: ['vi', 'wallet'],
-  amount: ['so tien', 'amount'],
-  note: ['ghi chu', 'note'],
+  date: headersAt(0),
+  type: headersAt(1),
+  category: headersAt(2),
+  wallet: headersAt(3),
+  amount: headersAt(4),
+  note: headersAt(5),
 };
+// "Thu nhập", "Income", "수입", "收入"… — anything else is an expense.
+const INCOME_WORDS = LANGUAGES.map((language) => normalizeForSearch(stringsFor(language).common.income));
 
 /** Reads transactions from a CSV file in the format the app exports (Excel edits welcome). */
 export function parseTransactionsCsv(text: string): CsvParseResult {
@@ -57,7 +62,7 @@ export function parseTransactionsCsv(text: string): CsvParseResult {
     note: column(COLUMNS.note),
   };
   if (index.date < 0 || index.amount < 0) {
-    throw new CsvImportError('File CSV cần có ít nhất cột "Ngày" và "Số tiền", như file xuất từ ứng dụng.');
+    throw new CsvImportError(strings().files.csvMissingColumns);
   }
 
   const rows: CsvTransaction[] = [];
@@ -72,13 +77,13 @@ export function parseTransactionsCsv(text: string): CsvParseResult {
       return;
     }
     const typeText = normalizeForSearch(cell(index.type));
-    const type: TransactionType = typeText.startsWith('thu') || typeText === 'income' ? 'income' : 'expense';
+    const type: TransactionType = typeText.startsWith('thu') || INCOME_WORDS.includes(typeText) ? 'income' : 'expense';
     rows.push({
       date,
       type,
       amount,
-      category: cell(index.category) || (type === 'income' ? 'Thu nhập khác' : 'Khác'),
-      wallet: cell(index.wallet),
+      category: storedCategoryName(cell(index.category)) || (type === 'income' ? 'Thu nhập khác' : 'Khác'),
+      wallet: storedWalletName(cell(index.wallet)),
       note: cell(index.note),
     });
   });
@@ -134,7 +139,7 @@ export async function importTransactions(db: SQLiteDatabase, rows: CsvTransactio
     for (const row of rows) {
       let walletId = row.wallet ? walletIds.get(key(row.wallet)) : wallets[0]?.id;
       if (walletId == null) {
-        const name = row.wallet || 'Ví';
+        const name = row.wallet || strings().files.csvDefaultWallet;
         walletId = await createWallet(db, { name, icon: 'wallet', initialBalance: 0 });
         walletIds.set(key(name), walletId);
         result.createdWallets.push(name);

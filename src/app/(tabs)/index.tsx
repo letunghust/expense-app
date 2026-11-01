@@ -21,12 +21,15 @@ import {
   getTotalsByCategory,
   listRecentTransactions,
 } from '@/db/repo';
+import { useStrings } from '@/i18n';
+import { categoryLabel } from '@/i18n/defaults';
 import { currentYearMonth, daysInMonth, monthRange } from '@/lib/dates';
 import { formatCompactVND, formatVND } from '@/lib/money';
 
 const RECENT_COUNT = 5;
 
 export default function OverviewScreen() {
+  const t = useStrings();
   const [month, setMonth] = useState(currentYearMonth());
   const range = monthRange(month);
 
@@ -61,14 +64,14 @@ export default function OverviewScreen() {
           <>
             <Card>
               <ThemedText type="small" themeColor="textSecondary">
-                Tổng số dư các ví
+                {t.home.totalBalance}
               </ThemedText>
               <ThemedText style={styles.balance}>{formatVND(data.balance)}</ThemedText>
               <View style={styles.summaryRow}>
-                <SummaryCell label="Thu nhập" value={data.summary.income} color="income" />
-                <SummaryCell label="Chi tiêu" value={data.summary.expense} color="expense" />
+                <SummaryCell label={t.common.income} value={data.summary.income} color="income" />
+                <SummaryCell label={t.common.expense} value={data.summary.expense} color="expense" />
                 <SummaryCell
-                  label="Chênh lệch"
+                  label={t.home.net}
                   value={data.summary.income - data.summary.expense}
                   color={data.summary.income >= data.summary.expense ? 'income' : 'expense'}
                 />
@@ -76,15 +79,15 @@ export default function OverviewScreen() {
             </Card>
 
             <Card>
-              <ThemedText type="smallBold">Chi tiêu theo danh mục</ThemedText>
+              <ThemedText type="smallBold">{t.home.byCategory}</ThemedText>
               {data.byCategory.length === 0 ? (
-                <EmptyState icon="pie-chart-outline" title="Chưa có khoản chi nào trong tháng" />
+                <EmptyState icon="pie-chart-outline" title={t.home.noExpenses} />
               ) : (
                 <>
                   <View style={styles.donut}>
                     <DonutChart
                       segments={data.byCategory.map((c) => ({ key: c.categoryId, value: c.total, color: c.color }))}
-                      centerLabel="Tổng chi"
+                      centerLabel={t.home.totalSpent}
                       centerValue={formatCompactVND(data.summary.expense)}
                     />
                   </View>
@@ -92,7 +95,7 @@ export default function OverviewScreen() {
                     <Pressable key={c.categoryId} style={styles.legendRow} onPress={() => openTransactions(c.categoryId)}>
                       <CategoryIcon icon={c.icon} color={c.color} size={32} />
                       <ThemedText style={styles.flex} numberOfLines={1}>
-                        {c.name}
+                        {categoryLabel(c.name)}
                       </ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
                         {Math.round((c.total / data.summary.expense) * 100)}%
@@ -107,17 +110,17 @@ export default function OverviewScreen() {
             </Card>
 
             <Card>
-              <ThemedText type="smallBold">Chi tiêu theo ngày</ThemedText>
+              <ThemedText type="smallBold">{t.home.byDay}</ThemedText>
               <DailyBarChart totals={data.dailyTotals} />
             </Card>
 
             <Card>
               <View style={styles.cardHeader}>
-                <ThemedText type="smallBold">Giao dịch gần đây</ThemedText>
+                <ThemedText type="smallBold">{t.home.recent}</ThemedText>
                 {data.recent.length > 0 && (
                   <Pressable hitSlop={8} onPress={() => openTransactions()}>
                     <ThemedText type="small" themeColor="tint">
-                      Xem tất cả
+                      {t.home.seeAll}
                     </ThemedText>
                   </Pressable>
                 )}
@@ -125,8 +128,8 @@ export default function OverviewScreen() {
               {data.recent.length === 0 ? (
                 <EmptyState
                   icon="receipt-outline"
-                  title="Chưa có giao dịch"
-                  message="Bấm nút + để ghi khoản thu hoặc chi đầu tiên."
+                  title={t.home.noTransactions}
+                  message={t.home.noTransactionsHint}
                 />
               ) : (
                 data.recent.map((item) => (

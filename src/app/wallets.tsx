@@ -10,10 +10,13 @@ import { Spacing } from '@/constants/theme';
 import { useDbQuery } from '@/db/data-context';
 import { listWallets } from '@/db/repo';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
+import { walletLabel } from '@/i18n/defaults';
 import { formatVND } from '@/lib/money';
 
 export default function WalletsScreen() {
   const theme = useTheme();
+  const t = useStrings();
   const wallets = useDbQuery((db) => listWallets(db), []);
   const total = wallets?.reduce((sum, w) => sum + w.balance, 0) ?? 0;
 
@@ -24,7 +27,7 @@ export default function WalletsScreen() {
           headerRight: () => (
             <Pressable
               hitSlop={8}
-              accessibilityLabel="Thêm ví"
+              accessibilityLabel={t.wallets.add}
               onPress={() => router.push({ pathname: '/wallet/[id]', params: { id: 'new' } })}>
               <Ionicons name="add" size={28} color={theme.tint} />
             </Pressable>
@@ -38,7 +41,7 @@ export default function WalletsScreen() {
         ListHeaderComponent={
           <Card style={styles.totalCard}>
             <ThemedText type="small" themeColor="textSecondary">
-              Tổng số dư
+              {t.wallets.totalBalance}
             </ThemedText>
             <ThemedText style={styles.total}>{formatVND(total)}</ThemedText>
           </Card>
@@ -49,9 +52,9 @@ export default function WalletsScreen() {
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
             <CategoryIcon icon={item.icon} color={theme.tint} />
             <View style={styles.flex}>
-              <ThemedText>{item.name}</ThemedText>
+              <ThemedText>{walletLabel(item.name)}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {item.transactionCount} giao dịch
+                {t.wallets.transactionCount(item.transactionCount)}
               </ThemedText>
             </View>
             <ThemedText type="smallBold" themeColor={item.balance < 0 ? 'expense' : 'text'}>

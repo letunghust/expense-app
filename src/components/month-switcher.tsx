@@ -4,15 +4,17 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
 import { currentYearMonth, formatMonth, isSameMonth, shiftMonth, type YearMonth } from '@/lib/dates';
 
 /** "‹ Tháng 10/2026 ›" — tapping the label jumps back to the current month. */
 export function MonthSwitcher({ value, onChange }: { value: YearMonth; onChange: (value: YearMonth) => void }) {
   const theme = useTheme();
+  const t = useStrings();
   const isCurrent = isSameMonth(value, currentYearMonth());
   return (
     <View style={styles.row}>
-      <Pressable hitSlop={12} onPress={() => onChange(shiftMonth(value, -1))} accessibilityLabel="Tháng trước">
+      <Pressable hitSlop={12} onPress={() => onChange(shiftMonth(value, -1))} accessibilityLabel={t.month.previous}>
         <Ionicons name="chevron-back" size={24} color={theme.text} />
       </Pressable>
       <Pressable onPress={() => onChange(currentYearMonth())} disabled={isCurrent}>
@@ -21,11 +23,11 @@ export function MonthSwitcher({ value, onChange }: { value: YearMonth; onChange:
         </ThemedText>
         {!isCurrent && (
           <ThemedText type="small" themeColor="tint" style={styles.hint}>
-            Về tháng này
+            {t.month.backToCurrent}
           </ThemedText>
         )}
       </Pressable>
-      <Pressable hitSlop={12} onPress={() => onChange(shiftMonth(value, 1))} accessibilityLabel="Tháng sau">
+      <Pressable hitSlop={12} onPress={() => onChange(shiftMonth(value, 1))} accessibilityLabel={t.month.next}>
         <Ionicons name="chevron-forward" size={24} color={theme.text} />
       </Pressable>
     </View>

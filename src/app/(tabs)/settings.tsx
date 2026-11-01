@@ -16,8 +16,10 @@ import { useNotifyDataChanged } from '@/db/data-context';
 import { deleteAllTransactions, listAllTransactions } from '@/db/repo';
 import { pickTextFile, shareTextFile, SharingUnavailableError } from '@/files/text-files';
 import { useTheme } from '@/hooks/use-theme';
+import { strings, useI18n } from '@/i18n';
+import { categoryLabel, walletLabel } from '@/i18n/defaults';
 import { toCsv } from '@/lib/csv';
-import { formatDate, toISODate, todayISO } from '@/lib/dates';
+import { formatDate, formatDateDMY, toISODate, todayISO } from '@/lib/dates';
 import { confirmAction, confirmDestructive, showMessage } from '@/lib/dialog';
 import { useAppLock } from '@/lock/app-lock-context';
 import { authenticateWithBiometrics, type BiometricSupport, getBiometricSupport } from '@/lock/biometrics';
@@ -28,15 +30,17 @@ import { cleanUpReceipts } from '@/receipts/scan';
 const receiptIO: ReceiptIO = { read: readReceiptBase64, write: writeReceiptBase64 };
 
 function shareError(error: unknown, fallback: string) {
+  const t = strings();
   if (error instanceof SharingUnavailableError) {
-    showMessage('Không thể chia sẻ', 'Thiết bị này không hỗ trợ chia sẻ tệp.');
+    showMessage(t.settings.cannotShare, t.settings.cannotShareMessage);
   } else {
     console.error(error);
-    showMessage('Lỗi', fallback);
+    showMessage(t.common.error, fallback);
   }
 }
 
 export default function SettingsScreen() {
+  const { t } = useI18n();
   const db = useSQLiteContext();
   const notifyChanged = useNotifyDataChanged();
   const theme = useTheme();
@@ -54,17 +58,17 @@ export default function SettingsScreen() {
   };
 
   const backupAll = () =>
-    runBusy('Đang tạo bản sao lưu…', async () => {
+    runBusy(t.settings.creatingBackup, async () => {
       try {
         const backup = await createBackup(db, receiptIO);
         await shareTextFile({
           fileName: `chi-tieu-sao-luu-${todayISO()}.json`,
           content: JSON.stringify(backup),
           mimeType: 'application/json',
-          dialogTitle: 'Lưu bản sao lưu',
+          dialogTitle: t.settings.saveBackup,
         });
       } catch (error) {
-        shareError(error, 'Không tạo được bản sao lưu.');
+        shareError(error, t.settings.backupFailed);
       }
     });
 
@@ -74,7 +78,7 @@ export default function SettingsScreen() {
       picked = await pickTextFile();
     } catch (error) {
       console.error(error);
-      showMessage('Lỗi', 'Không mở được file.');
+      showMessage(t.common.error, t.settings.openFileFailed);
       return;
     }
     if (!picked) return;
@@ -88,25 +92,23 @@ export default function SettingsScreen() {
     try {
       backup = parseBackup(text);
     } catch (error) {
-      showMessage('Không khôi phục được', error instanceof BackupError ? error.message : 'File bị lỗi.');
+      showMessage(t.settings.restoreFailedTitle, error instanceof BackupError ? error.message : t.settings.brokenFile);
       return;
     }
     confirmDestructive({
-      title: 'Khôi phục từ bản sao lưu?',
-      message:
-        `Bản sao lưu ngày ${formatDate(toISODate(new Date(backup.exportedAt)))} có ${backup.transactions.length} giao dịch. ` +
-        'Toàn bộ dữ liệu hiện có trên máy này sẽ được thay bằng dữ liệu trong file.',
-      confirmText: 'Khôi phục',
+      title: t.settings.restoreTitle,
+      message: t.settings.restoreMessage(formatDate(toISODate(new Date(backup.exportedAt))), backup.transactions.length),
+      confirmText: t.settings.restore,
       onConfirm: () =>
-        runBusy('Đang khôi phục…', async () => {
+        runBusy(t.settings.restoring, async () => {
           try {
             await restoreBackup(db, backup, receiptIO);
             await cleanUpReceipts(db);
             notifyChanged();
-            showMessage('Đã khôi phục', `Đã khôi phục ${backup.transactions.length} giao dịch.`);
+            showMessage(t.settings.restored, t.settings.restoredMessage(backup.transactions.length));
           } catch (error) {
             console.error(error);
-            showMessage('Lỗi', 'Không khôi phục được. Dữ liệu hiện tại vẫn được giữ nguyên.');
+            showMessage(t.common.error, t.settings.restoreFailed);
           }
         }),
     });
@@ -117,35 +119,37 @@ export default function SettingsScreen() {
     try {
       parsed = parseTransactionsCsv(text);
     } catch (error) {
-      showMessage('Không nhập được', error instanceof CsvImportError ? error.message : 'File bị lỗi.');
+      showMessage(t.settings.importFailedTitle, error instanceof CsvImportError ? error.message : t.settings.brokenFile);
       return;
     }
     const { rows, invalidLines } = parsed;
     if (rows.length === 0) {
-      showMessage('Không có giao dịch', 'Không tìm thấy giao dịch nào đọc được trong file.');
+      showMessage(t.settings.noTransactions, t.settings.noReadableTransactions);
       return;
     }
     confirmAction({
-      title: `Nhập ${rows.length} giao dịch từ CSV?`,
-      message: 'Giao dịch sẽ được thêm vào dữ liệu hiện có. Những giao dịch đã có sẵn trong ứng dụng sẽ được bỏ qua.',
-      confirmText: 'Nhập',
+      title: t.settings.importTitle(rows.length),
+      message: t.settings.importMessage,
+      confirmText: t.settings.import,
       onConfirm: () =>
-        runBusy('Đang nhập dữ liệu…', async () => {
+        runBusy(t.settings.importing, async () => {
           try {
             const result = await importTransactions(db, rows);
             notifyChanged();
-            const lines = [`Đã thêm ${result.added} giao dịch.`];
-            if (result.duplicates) lines.push(`Bỏ qua ${result.duplicates} giao dịch đã có.`);
+            const lines = [t.settings.imported(result.added)];
+            if (result.duplicates) lines.push(t.settings.skipped(result.duplicates));
             if (invalidLines.length) {
-              const shown = invalidLines.slice(0, 5).join(', ');
-              lines.push(`${invalidLines.length} dòng không đọc được (dòng ${shown}${invalidLines.length > 5 ? '…' : ''}).`);
+              const shown = invalidLines.slice(0, 5).join(', ') + (invalidLines.length > 5 ? '…' : '');
+              lines.push(t.settings.unreadableLines(invalidLines.length, shown));
             }
-            if (result.createdWallets.length) lines.push(`Ví mới: ${result.createdWallets.join(', ')}.`);
-            if (result.createdCategories.length) lines.push(`Danh mục mới: ${result.createdCategories.join(', ')}.`);
-            showMessage('Đã nhập xong', lines.join('\n'));
+            if (result.createdWallets.length) lines.push(t.settings.newWallets(result.createdWallets.join(', ')));
+            if (result.createdCategories.length) {
+              lines.push(t.settings.newCategories(result.createdCategories.map(categoryLabel).join(', ')));
+            }
+            showMessage(t.settings.importDone, lines.join('\n'));
           } catch (error) {
             console.error(error);
-            showMessage('Lỗi', 'Không nhập được dữ liệu. Không có giao dịch nào được thêm.');
+            showMessage(t.common.error, t.settings.importFailed);
           }
         }),
     });
@@ -155,16 +159,17 @@ export default function SettingsScreen() {
     try {
       const rows = await listAllTransactions(db);
       if (rows.length === 0) {
-        showMessage('Chưa có dữ liệu', 'Bạn chưa có giao dịch nào để xuất.');
+        showMessage(t.settings.noData, t.settings.noDataMessage);
         return;
       }
       const csv = toCsv(
-        ['Ngày', 'Loại', 'Danh mục', 'Ví', 'Số tiền', 'Ghi chú'],
+        t.files.csvHeaders,
         rows.map((r) => [
-          formatDate(r.date),
-          r.type === 'income' ? 'Thu nhập' : 'Chi tiêu',
-          r.categoryName,
-          r.walletName,
+          // Always day/month/year so the file reads back the same in any language.
+          formatDateDMY(r.date),
+          t.common[r.type],
+          categoryLabel(r.categoryName),
+          walletLabel(r.walletName),
           r.amount,
           r.note,
         ])
@@ -173,19 +178,18 @@ export default function SettingsScreen() {
         fileName: `chi-tieu-${todayISO()}.csv`,
         content: csv,
         mimeType: 'text/csv',
-        dialogTitle: 'Xuất dữ liệu chi tiêu',
+        dialogTitle: t.settings.exportTitle,
       });
     } catch (error) {
-      shareError(error, 'Không xuất được tệp CSV.');
+      shareError(error, t.settings.exportFailed);
     }
   };
 
   const confirmDeleteAll = () =>
     confirmDestructive({
-      title: 'Xóa toàn bộ giao dịch?',
-      message:
-        'Tất cả giao dịch sẽ bị xóa vĩnh viễn. Ví, danh mục và ngân sách vẫn được giữ lại. Nên xuất CSV để sao lưu trước.',
-      confirmText: 'Xóa tất cả',
+      title: t.settings.deleteAllTitle,
+      message: t.settings.deleteAllMessage,
+      confirmText: t.settings.deleteAllConfirm,
       onConfirm: async () => {
         await deleteAllTransactions(db);
         await cleanUpReceipts(db);
@@ -199,8 +203,18 @@ export default function SettingsScreen() {
         <SecurityCard />
 
         <Card style={styles.group}>
-          <SettingsRow icon="wallet-outline" label="Quản lý ví" onPress={() => router.push('/wallets')} />
-          <SettingsRow icon="pricetags-outline" label="Quản lý danh mục" onPress={() => router.push('/categories')} />
+          <SettingsRow icon="wallet-outline" label={t.settings.manageWallets} onPress={() => router.push('/wallets')} />
+          <SettingsRow
+            icon="pricetags-outline"
+            label={t.settings.manageCategories}
+            onPress={() => router.push('/categories')}
+          />
+          <SettingsRow
+            icon="language-outline"
+            label={t.settings.language}
+            value={t.languageName}
+            onPress={() => router.push('/language')}
+          />
         </Card>
 
         <Card style={styles.group}>
@@ -210,18 +224,17 @@ export default function SettingsScreen() {
               <ThemedText themeColor="textSecondary">{busy}</ThemedText>
             </View>
           )}
-          <SettingsRow icon="cloud-upload-outline" label="Sao lưu toàn bộ dữ liệu" onPress={backupAll} />
-          <SettingsRow icon="cloud-download-outline" label="Khôi phục hoặc nhập dữ liệu" onPress={restoreOrImport} />
-          <SettingsRow icon="download-outline" label="Xuất dữ liệu ra CSV (Excel)" onPress={exportCsv} />
-          <SettingsRow icon="trash-outline" label="Xóa toàn bộ giao dịch" destructive onPress={confirmDeleteAll} />
+          <SettingsRow icon="cloud-upload-outline" label={t.settings.backup} onPress={backupAll} />
+          <SettingsRow icon="cloud-download-outline" label={t.settings.restoreOrImport} onPress={restoreOrImport} />
+          <SettingsRow icon="download-outline" label={t.settings.exportCsv} onPress={exportCsv} />
+          <SettingsRow icon="trash-outline" label={t.settings.deleteAll} destructive onPress={confirmDeleteAll} />
           <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
-            Đổi điện thoại? Bấm Sao lưu, gửi file sang máy mới (Zalo, Drive, email…), rồi mở ứng dụng trên máy mới
-            và chọn Khôi phục. Cũng có thể nhập file CSV đã xuất trước đó.
+            {t.settings.moveHint}
           </ThemedText>
         </Card>
 
         <ThemedText type="small" themeColor="textSecondary" style={styles.footer}>
-          Phiên bản {Constants.expoConfig?.version ?? '1.0.0'} · Dữ liệu được lưu trên điện thoại của bạn
+          {t.settings.footer(Constants.expoConfig?.version ?? '1.0.0')}
         </ThemedText>
       </ScrollView>
     </ThemedView>
@@ -229,6 +242,7 @@ export default function SettingsScreen() {
 }
 
 function SecurityCard() {
+  const { t } = useI18n();
   const { settings, reload } = useAppLock();
   const [biometrics, setBiometrics] = useState<BiometricSupport>();
 
@@ -241,32 +255,32 @@ function SecurityCard() {
 
   const toggleBiometrics = async (enabled: boolean) => {
     // Confirm the finger/face actually works before relying on it.
-    if (enabled && !(await authenticateWithBiometrics(`Xác nhận ${biometrics?.label ?? 'vân tay'}`))) return;
+    if (enabled && !(await authenticateWithBiometrics(t.settings.confirmBiometrics(biometrics?.label ?? t.lock.fingerprint)))) return;
     await setBiometricsEnabled(enabled);
     await reload();
   };
 
-  const biometricLabel = biometrics?.label ?? 'vân tay';
+  const biometricLabel = biometrics?.label ?? t.lock.fingerprint;
 
   return (
     <Card style={styles.group}>
       <SwitchRow
         icon="lock-closed-outline"
-        label="Khóa ứng dụng bằng mã PIN"
+        label={t.settings.pinLock}
         value={settings.pinEnabled}
         onValueChange={(on) => openPin(on ? 'create' : 'disable')}
       />
       {settings.pinEnabled && (
         <>
-          <SettingsRow icon="keypad-outline" label="Đổi mã PIN" onPress={() => openPin('change')} />
+          <SettingsRow icon="keypad-outline" label={t.settings.changePin} onPress={() => openPin('change')} />
           <SwitchRow
             icon="finger-print"
-            label={`Mở khóa bằng ${biometricLabel}`}
+            label={t.settings.unlockWith(biometricLabel)}
             hint={
               biometrics?.notEnrolled
-                ? `Hãy thêm ${biometricLabel} trong Cài đặt của điện thoại trước.`
+                ? t.settings.enrollFirst(biometricLabel)
                 : biometrics && !biometrics.available
-                  ? 'Thiết bị không hỗ trợ.'
+                  ? t.settings.notSupported
                   : undefined
             }
             value={settings.biometricsEnabled}
@@ -274,7 +288,7 @@ function SecurityCard() {
             onValueChange={toggleBiometrics}
           />
           <ThemedText type="small" themeColor="textSecondary" style={styles.note}>
-            Ứng dụng tự khóa khi bạn rời đi quá 30 giây.
+            {t.settings.autoLockHint}
           </ThemedText>
         </>
       )}
@@ -323,11 +337,14 @@ function SwitchRow({
 function SettingsRow({
   icon,
   label,
+  value,
   onPress,
   destructive,
 }: {
   icon: IconName;
   label: string;
+  /** Current value, shown before the arrow. */
+  value?: string;
   onPress: () => void;
   destructive?: boolean;
 }) {
@@ -337,6 +354,7 @@ function SettingsRow({
     <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <Ionicons name={icon} size={22} color={color} />
       <ThemedText style={[styles.label, { color }]}>{label}</ThemedText>
+      {value && <ThemedText themeColor="textSecondary">{value}</ThemedText>}
       {!destructive && <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />}
     </Pressable>
   );

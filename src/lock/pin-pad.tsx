@@ -5,6 +5,7 @@ import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
 
 const ROWS = [
   ['1', '2', '3'],
@@ -35,6 +36,7 @@ export function PinPad({
   extraKey?: ReactNode;
 }) {
   const theme = useTheme();
+  const t = useStrings();
   const [shake] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export function PinPad({
             style={styles.key}
             onPress={() => onChange(value.slice(0, -1))}
             disabled={disabled || value.length === 0}
-            accessibilityLabel="Xóa một số">
+            accessibilityLabel={t.lock.deleteDigit}>
             <Ionicons name="backspace-outline" size={28} color={theme.text} />
           </Pressable>
         </View>

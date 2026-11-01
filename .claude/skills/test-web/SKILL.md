@@ -30,9 +30,13 @@ Set up Playwright once per scratch dir (not a project dependency):
    `pwa-test.mjs ... webkit` stops at the "Không mở được dữ liệu" screen. That is the test
    browser's limit, not a bug (real Safari has OPFS from iOS 17). The final check is the user
    opening the link on an iPhone.
-3. Tesseract warnings `Parameter not found: ...` in the logs are harmless.
+3. **Languages**: `node language-tour.mjs URL OUTDIR` switches through every language in
+   Settings → Language and screenshots home, transactions, budgets, settings and the add form
+   (`lang-<code>-<screen>.png`). Look at them: no Vietnamese left in other languages, nothing cut off.
+   `pwa-test.mjs` runs with an English browser on purpose: the app must still start in Vietnamese.
+4. Tesseract warnings `Parameter not found: ...` in the logs are harmless.
 
-4. **On-screen keyboard** (desktop Chrome has none): use Chrome inside the Android emulator
+5. **On-screen keyboard** (desktop Chrome has none): use Chrome inside the Android emulator
    (see the test-android skill). `adb reverse tcp:8080 tcp:8080` so `http://localhost:8080` is a
    secure context there, open it with
    `adb shell am start -a android.intent.action.VIEW -d http://localhost:8080/transaction/new com.android.chrome`,

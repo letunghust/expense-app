@@ -5,7 +5,7 @@ import { chromium, devices, webkit } from 'playwright';
 
 const [url, engine = 'chromium', out = '.', image] = process.argv.slice(2);
 const browser = engine === 'webkit' ? await webkit.launch() : await chromium.launch({ channel: 'chrome' });
-const ctx = await browser.newContext({ ...devices['iPhone 13'] });
+const ctx = await browser.newContext({ ...devices['iPhone 13'], locale: 'en-US' });
 const page = await ctx.newPage();
 const logs = [];
 page.on('console', (m) => ['error', 'warning'].includes(m.type()) && logs.push(`${m.type()}: ${m.text()}`));

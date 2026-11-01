@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { categoryLabel, walletLabel } from '@/i18n/defaults';
 import { matchesSearch } from '@/lib/search';
 
 import type {
@@ -156,7 +157,9 @@ export async function listTransactions(db: SQLiteDatabase, filter: TransactionFi
   );
   // Searched in JS: SQLite's LIKE/lower() only fold ASCII, which breaks on Vietnamese diacritics.
   const search = filter.search?.trim();
-  return search ? rows.filter((row) => matchesSearch([row.note, row.categoryName, row.walletName], search)) : rows;
+  // Built-in names match both as stored and as shown in the current language.
+  const fields = (row: TransactionRow) => [row.note, row.categoryName, row.walletName, categoryLabel(row.categoryName), walletLabel(row.walletName)];
+  return search ? rows.filter((row) => matchesSearch(fields(row), search)) : rows;
 }
 
 export function listRecentTransactions(db: SQLiteDatabase, limit: number): Promise<TransactionRow[]> {

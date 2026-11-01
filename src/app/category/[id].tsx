@@ -13,9 +13,12 @@ import { Spacing } from '@/constants/theme';
 import { useNotifyDataChanged } from '@/db/data-context';
 import { createCategory, getCategory, removeCategory, updateCategory } from '@/db/repo';
 import type { TransactionType } from '@/db/types';
+import { useStrings } from '@/i18n';
+import { categoryLabel, nameToStore } from '@/i18n/defaults';
 import { confirmDestructive, showMessage } from '@/lib/dialog';
 
 export default function CategoryFormScreen() {
+  const t = useStrings();
   const params = useLocalSearchParams<{ id: string; type?: TransactionType }>();
   const isNew = params.id === 'new';
   const db = useSQLiteContext();
@@ -23,6 +26,7 @@ export default function CategoryFormScreen() {
 
   const [type, setType] = useState<TransactionType>(params.type ?? 'expense');
   const [name, setName] = useState('');
+  const [storedName, setStoredName] = useState('');
   const [icon, setIcon] = useState<string>(CATEGORY_ICONS[0]);
   const [color, setColor] = useState(CATEGORY_COLORS[0]);
 
@@ -31,7 +35,8 @@ export default function CategoryFormScreen() {
     getCategory(db, Number(params.id)).then((category) => {
       if (!category) return;
       setType(category.type);
-      setName(category.name);
+      setName(categoryLabel(category.name));
+      setStoredName(category.name);
       setIcon(category.icon);
       setColor(category.color);
     });
@@ -40,21 +45,23 @@ export default function CategoryFormScreen() {
   const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      showMessage('Thiếu tên', 'Vui lòng nhập tên danh mục.');
+      showMessage(t.categories.missingName, t.categories.missingNameMessage);
       return;
     }
     if (isNew) await createCategory(db, { name: trimmed, type, icon, color });
-    else await updateCategory(db, { id: Number(params.id), name: trimmed, type, icon, color });
+    else {
+      const stored = nameToStore(trimmed, storedName, categoryLabel);
+      await updateCategory(db, { id: Number(params.id), name: stored, type, icon, color });
+    }
     notifyChanged();
     router.back();
   };
 
   const confirmDelete = () =>
     confirmDestructive({
-      title: 'Xóa danh mục?',
-      message:
-        'Các giao dịch cũ thuộc danh mục này vẫn được giữ lại, nhưng bạn sẽ không chọn được danh mục này cho giao dịch mới.',
-      confirmText: 'Xóa',
+      title: t.categories.deleteTitle,
+      message: t.categories.deleteMessage,
+      confirmText: t.common.delete,
       onConfirm: async () => {
         await removeCategory(db, Number(params.id));
         notifyChanged();
@@ -64,26 +71,26 @@ export default function CategoryFormScreen() {
 
   return (
     <ThemedView style={styles.screen}>
-      <Stack.Screen options={{ title: isNew ? 'Thêm danh mục' : 'Sửa danh mục' }} />
+      <Stack.Screen options={{ title: isNew ? t.categories.newTitle : t.categories.editTitle }} />
       <KeyboardAwareScrollView contentContainerStyle={styles.content}>
         <View style={styles.preview}>
           <CategoryIcon icon={icon} color={color} size={64} />
           <ThemedText type="small" themeColor="textSecondary">
-            {type === 'expense' ? 'Danh mục chi tiêu' : 'Danh mục thu nhập'}
+            {type === 'expense' ? t.categories.expenseCategory : t.categories.incomeCategory}
           </ThemedText>
         </View>
 
-        <FormLabel>Tên danh mục</FormLabel>
-        <TextField value={name} onChangeText={setName} placeholder="Ví dụ: Cà phê" maxLength={40} autoFocus={isNew} />
+        <FormLabel>{t.categories.name}</FormLabel>
+        <TextField value={name} onChangeText={setName} placeholder={t.categories.namePlaceholder} maxLength={40} autoFocus={isNew} />
 
-        <FormLabel>Màu</FormLabel>
+        <FormLabel>{t.categories.color}</FormLabel>
         <ColorPicker colors={CATEGORY_COLORS} value={color} onChange={setColor} />
 
-        <FormLabel>Biểu tượng</FormLabel>
+        <FormLabel>{t.categories.icon}</FormLabel>
         <IconPicker icons={CATEGORY_ICONS} value={icon} color={color} onChange={setIcon} />
 
-        <Button label={isNew ? 'Tạo danh mục' : 'Lưu thay đổi'} onPress={save} />
-        {!isNew && <Button label="Xóa danh mục" variant="danger" onPress={confirmDelete} />}
+        <Button label={isNew ? t.categories.create : t.common.saveChanges} onPress={save} />
+        {!isNew && <Button label={t.categories.delete} variant="danger" onPress={confirmDelete} />}
       </KeyboardAwareScrollView>
     </ThemedView>
   );

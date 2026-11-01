@@ -1,5 +1,7 @@
 import { Alert, Platform } from 'react-native';
 
+import { strings } from '@/i18n';
+
 /**
  * Thin wrappers over Alert.alert. React Native Web's Alert is a no-op, so on
  * web these fall back to the browser's alert/confirm dialogs.
@@ -34,7 +36,7 @@ function confirm({ title, message, confirmText, onConfirm }: ConfirmOptions, sty
     return;
   }
   Alert.alert(title, message, [
-    { text: 'Hủy', style: 'cancel' },
+    { text: strings().common.cancel, style: 'cancel' },
     { text: confirmText, style, onPress: onConfirm },
   ]);
 }

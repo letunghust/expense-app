@@ -4,14 +4,16 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
 
 /** Web version of DateField: the native date pickers don't exist on web, so use the browser's date input. */
 export function DateField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const theme = useTheme();
+  const t = useStrings();
   return (
     <View style={styles.row}>
       <Ionicons name="calendar-outline" size={22} color={theme.textSecondary} />
-      <ThemedText style={styles.text}>Ngày</ThemedText>
+      <ThemedText style={styles.text}>{t.common.date}</ThemedText>
       <input
         type="date"
         value={value}

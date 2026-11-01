@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useStrings } from '@/i18n';
 import { type PinLength } from '@/lib/app-lock';
 import { useAppLock } from '@/lock/app-lock-context';
 import { checkPin, clearPin, savePin } from '@/lock/lock-store';
@@ -13,21 +14,10 @@ import { PinPad } from '@/lock/pin-pad';
 type Mode = 'create' | 'change' | 'disable';
 type Step = 'verify' | 'enter' | 'confirm';
 
-const TITLES: Record<Mode, string> = {
-  create: 'Tạo mã PIN',
-  change: 'Đổi mã PIN',
-  disable: 'Tắt khóa ứng dụng',
-};
-
-const PROMPTS: Record<Step, string> = {
-  verify: 'Nhập mã PIN hiện tại',
-  enter: 'Nhập mã PIN mới',
-  confirm: 'Nhập lại mã PIN mới',
-};
-
 /** Create, change or remove the app PIN, depending on the `mode` param. */
 export default function PinSetupScreen() {
   const { mode = 'create' } = useLocalSearchParams<{ mode?: Mode }>();
+  const t = useStrings();
   const { settings, reload } = useAppLock();
 
   const [step, setStep] = useState<Step>(mode === 'create' ? 'enter' : 'verify');
@@ -46,7 +36,7 @@ export default function PinSetupScreen() {
   const onComplete = async (pin: string) => {
     if (step === 'verify') {
       if (!(await checkPin(pin))) {
-        fail('Mã PIN không đúng.');
+        fail(t.pin.wrong);
         return;
       }
       if (mode === 'disable') {
@@ -64,7 +54,7 @@ export default function PinSetupScreen() {
       if (pin !== firstPin) {
         setStep('enter');
         setFirstPin('');
-        fail('Hai lần nhập không khớp. Vui lòng tạo lại.');
+        fail(t.pin.mismatch);
         return;
       }
       await savePin(pin);
@@ -78,13 +68,13 @@ export default function PinSetupScreen() {
 
   return (
     <ThemedView style={styles.screen}>
-      <Stack.Screen options={{ title: TITLES[mode] }} />
+      <Stack.Screen options={{ title: t.pin[mode] }} />
       <View style={styles.header}>
         <ThemedText type="smallBold" style={styles.prompt}>
-          {PROMPTS[step]}
+          {t.pin[step]}
         </ThemedText>
         <ThemedText type="small" themeColor={error ? 'expense' : 'textSecondary'} style={styles.center}>
-          {error || (step === 'enter' ? `Mã PIN gồm ${length} chữ số` : ' ')}
+          {error || (step === 'enter' ? t.pin.digits(length) : ' ')}
         </ThemedText>
       </View>
 
@@ -98,7 +88,7 @@ export default function PinSetupScreen() {
             setValue('');
           }}>
           <ThemedText type="small" themeColor="tint">
-            {length === 6 ? 'Dùng mã 4 số' : 'Dùng mã 6 số'}
+            {length === 6 ? t.pin.use4 : t.pin.use6}
           </ThemedText>
         </Pressable>
       ) : (

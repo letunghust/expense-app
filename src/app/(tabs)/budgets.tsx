@@ -13,12 +13,15 @@ import { useDbQuery } from '@/db/data-context';
 import { listBudgets } from '@/db/repo';
 import type { BudgetRow } from '@/db/types';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
+import { categoryLabel } from '@/i18n/defaults';
 import { budgetStatus, type BudgetLevel } from '@/lib/budget';
 import { currentYearMonth, monthRange } from '@/lib/dates';
 import { formatVND } from '@/lib/money';
 
 export default function BudgetsScreen() {
   const theme = useTheme();
+  const t = useStrings();
   const [month, setMonth] = useState(currentYearMonth());
   const range = monthRange(month);
   const rows = useDbQuery((db) => listBudgets(db, range), [range.start]);
@@ -45,23 +48,22 @@ export default function BudgetsScreen() {
             <Card>
               {withBudget.length === 0 ? (
                 <>
-                  <ThemedText type="smallBold">Chưa đặt ngân sách</ThemedText>
+                  <ThemedText type="smallBold">{t.budgets.noneTitle}</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
-                    Đặt hạn mức chi tiêu hằng tháng cho từng danh mục bên dưới. Ứng dụng sẽ cảnh báo khi bạn chi tới
-                    80% hạn mức.
+                    {t.budgets.noneHint}
                   </ThemedText>
                 </>
               ) : (
                 <>
                   <ThemedText type="small" themeColor="textSecondary">
-                    {total.remaining >= 0 ? 'Còn có thể chi' : 'Đã vượt ngân sách'}
+                    {total.remaining >= 0 ? t.budgets.canSpend : t.budgets.overBudget}
                   </ThemedText>
                   <ThemedText style={[styles.bigNumber, { color: levelColor(total.level) }]}>
                     {formatVND(Math.abs(total.remaining))}
                   </ThemedText>
                   <ProgressBar ratio={total.ratio} color={levelColor(total.level)} />
                   <ThemedText type="small" themeColor="textSecondary">
-                    Đã chi {formatVND(totalSpent)} / {formatVND(totalLimit)}
+                    {t.budgets.spentOf(formatVND(totalSpent), formatVND(totalLimit))}
                   </ThemedText>
                 </>
               )}
@@ -69,7 +71,7 @@ export default function BudgetsScreen() {
 
             {withBudget.length > 0 && (
               <Card>
-                <ThemedText type="smallBold">Theo danh mục</ThemedText>
+                <ThemedText type="smallBold">{t.budgets.byCategory}</ThemedText>
                 {withBudget.map((row) => {
                   const status = budgetStatus(row.spent, row.limit);
                   const color = levelColor(status.level);
@@ -78,7 +80,7 @@ export default function BudgetsScreen() {
                       <View style={styles.rowHeader}>
                         <CategoryIcon icon={row.icon} color={row.color} size={32} />
                         <ThemedText style={styles.flex} numberOfLines={1}>
-                          {row.name}
+                          {categoryLabel(row.name)}
                         </ThemedText>
                         <ThemedText type="small" style={{ color }}>
                           {Math.round(status.ratio * 100)}%
@@ -91,8 +93,8 @@ export default function BudgetsScreen() {
                         </ThemedText>
                         <ThemedText type="small" style={{ color }}>
                           {status.remaining >= 0
-                            ? `Còn ${formatVND(status.remaining)}`
-                            : `Vượt ${formatVND(-status.remaining)}`}
+                            ? t.budgets.left(formatVND(status.remaining))
+                            : t.budgets.over(formatVND(-status.remaining))}
                         </ThemedText>
                       </View>
                     </Pressable>
@@ -103,20 +105,20 @@ export default function BudgetsScreen() {
 
             {withoutBudget.length > 0 && (
               <Card>
-                <ThemedText type="smallBold">Chưa đặt hạn mức</ThemedText>
+                <ThemedText type="smallBold">{t.budgets.noLimit}</ThemedText>
                 {withoutBudget.map((row) => (
                   <Pressable key={row.categoryId} onPress={() => openBudget(row.categoryId)} style={styles.rowHeader}>
                     <CategoryIcon icon={row.icon} color={row.color} size={32} />
                     <View style={styles.flex}>
-                      <ThemedText numberOfLines={1}>{row.name}</ThemedText>
+                      <ThemedText numberOfLines={1}>{categoryLabel(row.name)}</ThemedText>
                       {row.spent > 0 && (
                         <ThemedText type="small" themeColor="textSecondary">
-                          Đã chi {formatVND(row.spent)}
+                          {t.budgets.spent(formatVND(row.spent))}
                         </ThemedText>
                       )}
                     </View>
                     <ThemedText type="small" themeColor="tint">
-                      Đặt hạn mức
+                      {t.budgets.setLimit}
                     </ThemedText>
                   </Pressable>
                 ))}

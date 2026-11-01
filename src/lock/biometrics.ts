@@ -1,11 +1,13 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 
+import { strings } from '@/i18n';
+
 export type BiometricSupport = {
   /** Hardware exists and the user has enrolled at least one fingerprint/face. */
   available: boolean;
   /** Hardware exists but nothing is enrolled yet. */
   notEnrolled: boolean;
-  /** What to call it in the UI, e.g. "vân tay". */
+  /** What to call it in the UI, e.g. "vân tay" / "fingerprint". */
   label: string;
 };
 
@@ -16,11 +18,8 @@ export async function getBiometricSupport(): Promise<BiometricSupport> {
     LocalAuthentication.supportedAuthenticationTypesAsync(),
   ]);
   const { FINGERPRINT, FACIAL_RECOGNITION } = LocalAuthentication.AuthenticationType;
-  const label = types.includes(FINGERPRINT)
-    ? 'vân tay'
-    : types.includes(FACIAL_RECOGNITION)
-      ? 'khuôn mặt'
-      : 'sinh trắc học';
+  const t = strings().lock;
+  const label = types.includes(FINGERPRINT) ? t.fingerprint : types.includes(FACIAL_RECOGNITION) ? t.face : t.biometrics;
   return { available: hasHardware && enrolled, notEnrolled: hasHardware && !enrolled, label };
 }
 
@@ -31,7 +30,7 @@ export async function getBiometricSupport(): Promise<BiometricSupport> {
 export async function authenticateWithBiometrics(promptMessage: string): Promise<boolean> {
   const result = await LocalAuthentication.authenticateAsync({
     promptMessage,
-    cancelLabel: 'Dùng mã PIN',
+    cancelLabel: strings().lock.usePin,
     disableDeviceFallback: true,
   });
   return result.success;

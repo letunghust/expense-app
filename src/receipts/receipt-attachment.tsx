@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
 import { showMessage } from '@/lib/dialog';
 
 import { receiptUri } from './receipt-files';
@@ -19,12 +20,12 @@ export function scanStatusOf(result: ScanResult): ScanStatus {
   return result.amount == null ? 'no-amount' : 'filled';
 }
 
-const STATUS_TEXT: Record<ScanStatus, string> = {
-  filled: 'Đã tự điền từ ảnh. Kiểm tra lại trước khi lưu.',
-  'no-amount': 'Không tìm thấy số tiền trong ảnh, vui lòng nhập tay.',
-  failed: 'Không đọc được chữ trong ảnh, vui lòng nhập tay.',
-  unsupported: 'Bản xem trước trên web không đọc được chữ trong ảnh, hãy nhập tay.',
-};
+const STATUS_TEXT = {
+  filled: 'filled',
+  'no-amount': 'noAmount',
+  failed: 'failed',
+  unsupported: 'unsupported',
+} as const satisfies Record<ScanStatus, string>;
 
 /**
  * "Scan a transfer screenshot" button, or the attached image with buttons to
@@ -49,6 +50,7 @@ export function ReceiptAttachment({
   onRemove: () => void;
 }) {
   const theme = useTheme();
+  const t = useStrings();
 
   if (!receipt) {
     return (
@@ -59,10 +61,10 @@ export function ReceiptAttachment({
         {scanning ? <ActivityIndicator color={theme.tint} /> : <Ionicons name="scan-outline" size={26} color={theme.tint} />}
         <View style={styles.text}>
           <ThemedText type="smallBold" style={{ color: theme.tint }}>
-            {scanning ? 'Đang đọc ảnh…' : 'Quét ảnh chuyển khoản'}
+            {scanning ? t.receipt.scanning : t.receipt.scan}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Tự điền số tiền, ngày và nội dung từ ảnh chụp màn hình
+            {t.receipt.scanHint}
           </ThemedText>
         </View>
       </Pressable>
@@ -71,33 +73,33 @@ export function ReceiptAttachment({
 
   return (
     <View style={[styles.attached, { backgroundColor: theme.backgroundElement }]}>
-      <Pressable onPress={onView} accessibilityLabel="Xem ảnh chuyển khoản">
+      <Pressable onPress={onView} accessibilityLabel={t.receipt.view}>
         <Image source={{ uri: receiptUri(receipt) }} style={styles.thumbnail} contentFit="cover" />
       </Pressable>
       <Pressable onPress={onView} style={styles.text}>
-        <ThemedText type="smallBold">Ảnh chuyển khoản</ThemedText>
+        <ThemedText type="smallBold">{t.receipt.image}</ThemedText>
         <ThemedText
           type="small"
           themeColor={status === 'no-amount' || status === 'failed' ? 'warning' : 'textSecondary'}>
-          {status ? STATUS_TEXT[status] : 'Chạm để xem ảnh'}
+          {status ? t.receipt[STATUS_TEXT[status]] : t.receipt.tapToView}
         </ThemedText>
         {ocrText != null && status !== 'unsupported' && (
           <ThemedText
             type="small"
             style={{ color: theme.tint }}
-            onPress={() => showMessage('Chữ app đọc được từ ảnh', ocrText || '(Không có chữ nào)')}>
-            Xem chữ app đọc được
+            onPress={() => showMessage(t.receipt.ocrTitle, ocrText || t.receipt.ocrEmpty)}>
+            {t.receipt.showOcr}
           </ThemedText>
         )}
       </Pressable>
       {scanning ? (
         <ActivityIndicator color={theme.tint} />
       ) : (
-        <Pressable onPress={onScan} hitSlop={8} accessibilityLabel="Chọn ảnh khác">
+        <Pressable onPress={onScan} hitSlop={8} accessibilityLabel={t.receipt.pickAnother}>
           <Ionicons name="refresh" size={22} color={theme.textSecondary} />
         </Pressable>
       )}
-      <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel="Gỡ ảnh">
+      <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel={t.receipt.remove}>
         <Ionicons name="close-circle" size={24} color={theme.textSecondary} />
       </Pressable>
     </View>

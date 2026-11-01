@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
 import { FREE_ATTEMPTS } from '@/lib/app-lock';
 import { showMessage } from '@/lib/dialog';
 
@@ -16,6 +17,7 @@ import { PinPad } from './pin-pad';
 
 export function LockScreen({ settings, onUnlock }: { settings: LockSettings; onUnlock: () => void }) {
   const theme = useTheme();
+  const t = useStrings();
   const [pin, setPin] = useState('');
   const [errorCount, setErrorCount] = useState(0);
   const [failures, setFailures] = useState<FailureState>({ count: 0, lockedUntil: 0 });
@@ -25,7 +27,7 @@ export function LockScreen({ settings, onUnlock }: { settings: LockSettings; onU
   const lockedFor = Math.max(0, Math.ceil((failures.lockedUntil - now) / 1000));
 
   const tryBiometrics = async () => {
-    if (await authenticateWithBiometrics('Mở khóa Chi Tiêu')) {
+    if (await authenticateWithBiometrics(t.lock.unlockPrompt)) {
       await resetFailures();
       onUnlock();
     }
@@ -66,11 +68,11 @@ export function LockScreen({ settings, onUnlock }: { settings: LockSettings; onU
   const remaining = FREE_ATTEMPTS - failures.count;
   const message =
     lockedFor > 0
-      ? `Nhập sai quá nhiều lần. Thử lại sau ${lockedFor} giây.`
+      ? t.lock.tooManyAttempts(lockedFor)
       : failures.count > 0
         ? remaining > 0
-          ? `Mã PIN không đúng. Còn ${remaining} lần thử.`
-          : 'Mã PIN không đúng.'
+          ? t.lock.wrongPinRemaining(remaining)
+          : t.lock.wrongPin
         : ' ';
 
   return (
@@ -79,7 +81,7 @@ export function LockScreen({ settings, onUnlock }: { settings: LockSettings; onU
         <View style={styles.header}>
           <Ionicons name="lock-closed" size={40} color={theme.tint} />
           <ThemedText type="smallBold" style={styles.title}>
-            Nhập mã PIN
+            {t.lock.enterPin}
           </ThemedText>
           <ThemedText type="small" themeColor={failures.count > 0 ? 'expense' : 'textSecondary'} style={styles.center}>
             {message}
@@ -95,7 +97,7 @@ export function LockScreen({ settings, onUnlock }: { settings: LockSettings; onU
           errorCount={errorCount}
           extraKey={
             biometricLabel ? (
-              <Pressable onPress={tryBiometrics} hitSlop={8} accessibilityLabel={`Mở khóa bằng ${biometricLabel}`}>
+              <Pressable onPress={tryBiometrics} hitSlop={8} accessibilityLabel={t.settings.unlockWith(biometricLabel)}>
                 <Ionicons name="finger-print" size={36} color={theme.tint} />
               </Pressable>
             ) : undefined
@@ -105,13 +107,10 @@ export function LockScreen({ settings, onUnlock }: { settings: LockSettings; onU
         <Pressable
           hitSlop={8}
           onPress={() =>
-            showMessage(
-              'Quên mã PIN?',
-              'Mã PIN chỉ được lưu trên điện thoại này nên không thể khôi phục. Nếu đã bật mở khóa bằng vân tay, hãy dùng vân tay rồi đổi mã PIN trong Cài đặt. Nếu không, bạn cần gỡ và cài lại ứng dụng (dữ liệu trong ứng dụng sẽ bị xóa).'
-            )
+showMessage(t.lock.forgotTitle, t.lock.forgotMessage)
           }>
           <ThemedText type="small" themeColor="tint">
-            Quên mã PIN?
+            {t.lock.forgotTitle}
           </ThemedText>
         </Pressable>
       </SafeAreaView>

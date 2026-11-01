@@ -11,9 +11,12 @@ import { useDbQuery } from '@/db/data-context';
 import { listCategories } from '@/db/repo';
 import type { TransactionType } from '@/db/types';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
+import { categoryLabel } from '@/i18n/defaults';
 
 export default function CategoriesScreen() {
   const theme = useTheme();
+  const t = useStrings();
   const [type, setType] = useState<TransactionType>('expense');
   const categories = useDbQuery((db) => listCategories(db, type), [type]);
 
@@ -24,7 +27,7 @@ export default function CategoriesScreen() {
           headerRight: () => (
             <Pressable
               hitSlop={8}
-              accessibilityLabel="Thêm danh mục"
+              accessibilityLabel={t.categories.add}
               onPress={() => router.push({ pathname: '/category/[id]', params: { id: 'new', type } })}>
               <Ionicons name="add" size={28} color={theme.tint} />
             </Pressable>
@@ -32,12 +35,12 @@ export default function CategoriesScreen() {
         }}
       />
       <View style={[styles.segment, { backgroundColor: theme.backgroundElement }]}>
-        {(['expense', 'income'] as const).map((t) => (
+        {(['expense', 'income'] as const).map((kind) => (
           <Pressable
-            key={t}
-            onPress={() => setType(t)}
-            style={[styles.segmentItem, type === t && { backgroundColor: theme.background }]}>
-            <ThemedText type="smallBold">{t === 'expense' ? 'Chi tiêu' : 'Thu nhập'}</ThemedText>
+            key={kind}
+            onPress={() => setType(kind)}
+            style={[styles.segmentItem, type === kind && { backgroundColor: theme.background }]}>
+            <ThemedText type="smallBold">{t.common[kind]}</ThemedText>
           </Pressable>
         ))}
       </View>
@@ -50,7 +53,7 @@ export default function CategoriesScreen() {
             onPress={() => router.push({ pathname: '/category/[id]', params: { id: item.id } })}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
             <CategoryIcon icon={item.icon} color={item.color} />
-            <ThemedText style={styles.name}>{item.name}</ThemedText>
+            <ThemedText style={styles.name}>{categoryLabel(item.name)}</ThemedText>
             <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
           </Pressable>
         )}

@@ -13,6 +13,8 @@ Dữ liệu lưu offline trên điện thoại bằng SQLite, không cần tài 
 - **Quét ảnh chuyển khoản**: chọn ảnh chụp màn hình chuyển khoản/ví điện tử, app tự đọc số tiền, ngày, người nhận, nội dung và gợi ý danh mục rồi đính kèm ảnh vào giao dịch. Đọc chữ ngay trên điện thoại (ML Kit), ảnh không gửi đi đâu
 - **Khóa ứng dụng**: mã PIN 4 hoặc 6 số, mở khóa bằng vân tay/khuôn mặt, tự khóa khi rời app quá 30 giây
 - **Xuất CSV**: mở được bằng Excel, hiển thị đúng tiếng Việt
+- **Ngôn ngữ**: Tiếng Việt (mặc định), English, 한국어, 中文（简体）, 日本語 hoặc theo ngôn ngữ máy; chọn trong Cài đặt → Ngôn ngữ. Số tiền luôn là đồng (₫), chỉ cách ghi số đổi theo ngôn ngữ. Bản dịch nằm trong `src/i18n/`
+- **Bản web cho iPhone**: https://chi-tieu.levantung-work.workers.dev (Safari → Thêm vào Màn hình chính), dùng được khi không có mạng
 - Chế độ sáng/tối theo hệ thống
 
 ## Chạy thử trên điện thoại Android

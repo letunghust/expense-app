@@ -169,9 +169,15 @@ export function parseTransferReceipt(ocrLines: OcrLine[], today: string): Receip
   };
 }
 
-/** A short note for the transaction built from what the receipt says. */
-export function receiptNote({ recipient, content }: ReceiptData): string {
-  const note = content && recipient ? `${content} · ${recipient}` : content || (recipient ? `Chuyển khoản cho ${recipient}` : '');
+/**
+ * A short note for the transaction built from what the receipt says.
+ * `transferTo` words a recipient-only note in the app language.
+ */
+export function receiptNote(
+  { recipient, content }: ReceiptData,
+  transferTo = (name: string) => `Chuyển khoản cho ${name}`
+): string {
+  const note = content && recipient ? `${content} · ${recipient}` : content || (recipient ? transferTo(recipient) : '');
   return note.slice(0, 200);
 }
 

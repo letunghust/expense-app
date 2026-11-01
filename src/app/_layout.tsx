@@ -6,6 +6,7 @@ import { Colors } from '@/constants/theme';
 import { DataVersionProvider } from '@/db/data-context';
 import { DatabaseErrorBoundary } from '@/db/database-error-boundary';
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/db/schema';
+import { I18nProvider, useI18n } from '@/i18n';
 import { AppLockGate } from '@/lock/app-lock-context';
 import { cleanUpReceipts } from '@/receipts/scan';
 
@@ -16,6 +17,15 @@ async function initDb(db: SQLiteDatabase) {
 }
 
 export default function RootLayout() {
+  return (
+    <I18nProvider>
+      <App />
+    </I18nProvider>
+  );
+}
+
+function App() {
+  const { language, t } = useI18n();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const base = isDark ? DarkTheme : DefaultTheme;
@@ -31,15 +41,17 @@ export default function RootLayout() {
         <DatabaseErrorBoundary>
           <SQLiteProvider databaseName={DATABASE_NAME} onInit={initDb}>
             <DataVersionProvider>
-              <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
+              {/* Keyed by language: every screen re-renders its text when the language changes. */}
+            <Stack key={language} screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="transaction/[id]" options={{ presentation: 'modal', title: 'Giao dịch' }} />
-                <Stack.Screen name="budget/[categoryId]" options={{ presentation: 'modal', title: 'Ngân sách' }} />
-                <Stack.Screen name="categories" options={{ title: 'Danh mục' }} />
-                <Stack.Screen name="category/[id]" options={{ presentation: 'modal', title: 'Danh mục' }} />
-                <Stack.Screen name="wallets" options={{ title: 'Ví của bạn' }} />
-                <Stack.Screen name="wallet/[id]" options={{ presentation: 'modal', title: 'Ví' }} />
-                <Stack.Screen name="security/pin" options={{ presentation: 'modal', title: 'Mã PIN' }} />
+                <Stack.Screen name="transaction/[id]" options={{ presentation: 'modal', title: t.screens.transaction }} />
+                <Stack.Screen name="budget/[categoryId]" options={{ presentation: 'modal', title: t.screens.budget }} />
+                <Stack.Screen name="categories" options={{ title: t.screens.categories }} />
+                <Stack.Screen name="category/[id]" options={{ presentation: 'modal', title: t.screens.category }} />
+                <Stack.Screen name="wallets" options={{ title: t.screens.wallets }} />
+                <Stack.Screen name="wallet/[id]" options={{ presentation: 'modal', title: t.screens.wallet }} />
+                <Stack.Screen name="security/pin" options={{ presentation: 'modal', title: t.screens.pin }} />
+                <Stack.Screen name="language" options={{ title: t.screens.language }} />
               </Stack>
             </DataVersionProvider>
           </SQLiteProvider>

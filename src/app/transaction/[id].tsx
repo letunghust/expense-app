@@ -22,6 +22,8 @@ import {
 } from '@/db/repo';
 import type { TransactionType } from '@/db/types';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
+import { categoryLabel, walletLabel } from '@/i18n/defaults';
 import { todayISO } from '@/lib/dates';
 import { confirmDestructive, showMessage } from '@/lib/dialog';
 import { formatAmountInput, groupDigits, parseAmount } from '@/lib/money';
@@ -32,6 +34,7 @@ import { ReceiptViewer } from '@/receipts/receipt-viewer';
 import { cleanUpReceipts, getStashedScan, scanTransferReceipt } from '@/receipts/scan';
 
 export default function TransactionFormScreen() {
+  const t = useStrings();
   // `scan` is set when the scan button on the main screens already read a screenshot.
   const { id, scan: scanKey } = useLocalSearchParams<{ id: string; scan?: string }>();
   const isNew = id === 'new';
@@ -46,7 +49,7 @@ export default function TransactionFormScreen() {
   const [categoryId, setCategoryId] = useState<number>();
   const [walletId, setWalletId] = useState<number>();
   const [date, setDate] = useState(initialScan?.date ?? todayISO());
-  const [note, setNote] = useState(initialScan ? receiptNote(initialScan) : '');
+  const [note, setNote] = useState(initialScan ? receiptNote(initialScan, t.receipt.transferTo) : '');
   const [receipt, setReceipt] = useState<string | null>(initialScan?.receipt ?? null);
   // Suggestions from a scanned screenshot, used until the user picks a category / wallet.
   const [categoryHint, setCategoryHint] = useState(initialScan?.categoryHint);
@@ -102,12 +105,12 @@ export default function TransactionFormScreen() {
       setFromTransfer(true);
       if (result.amount) setAmountText(groupDigits(result.amount));
       if (result.date) setDate(result.date);
-      const scannedNote = receiptNote(result);
+      const scannedNote = receiptNote(result, t.receipt.transferTo);
       if (scannedNote) setNote(scannedNote);
       if (result.categoryHint) setCategoryHint(result.categoryHint);
     } catch (error) {
       console.error(error);
-      showMessage('Lỗi', 'Không mở được ảnh. Vui lòng thử lại.');
+      showMessage(t.common.error, t.transaction.imageOpenFailed);
     } finally {
       setScanning(false);
     }
@@ -122,15 +125,15 @@ export default function TransactionFormScreen() {
   const save = async () => {
     const amount = parseAmount(amountText);
     if (amount == null) {
-      showMessage('Thiếu số tiền', 'Vui lòng nhập số tiền lớn hơn 0.');
+      showMessage(t.transaction.missingAmount, t.transaction.missingAmountMessage);
       return;
     }
     if (selectedCategoryId == null) {
-      showMessage('Thiếu danh mục', 'Vui lòng chọn một danh mục.');
+      showMessage(t.transaction.missingCategory, t.transaction.missingCategoryMessage);
       return;
     }
     if (selectedWalletId == null) {
-      showMessage('Thiếu ví', 'Vui lòng tạo ít nhất một ví trong phần Cài đặt.');
+      showMessage(t.transaction.missingWallet, t.transaction.missingWalletMessage);
       return;
     }
     setSaving(true);
@@ -151,16 +154,16 @@ export default function TransactionFormScreen() {
       router.back();
     } catch (error) {
       console.error(error);
-      showMessage('Lỗi', 'Không lưu được giao dịch. Vui lòng thử lại.');
+      showMessage(t.common.error, t.transaction.saveFailed);
       setSaving(false);
     }
   };
 
   const confirmDelete = () =>
     confirmDestructive({
-      title: 'Xóa giao dịch?',
-      message: 'Giao dịch này sẽ bị xóa vĩnh viễn.',
-      confirmText: 'Xóa',
+      title: t.transaction.deleteTitle,
+      message: t.transaction.deleteMessage,
+      confirmText: t.common.delete,
       onConfirm: async () => {
         await deleteTransaction(db, Number(id));
         await cleanUpReceipts(db);
@@ -183,11 +186,11 @@ export default function TransactionFormScreen() {
     <ThemedView style={styles.screen}>
       <Stack.Screen
         options={{
-          title: isNew ? 'Thêm giao dịch' : 'Sửa giao dịch',
+          title: isNew ? t.transaction.addTitle : t.transaction.editTitle,
           headerRight: isNew
             ? undefined
             : () => (
-                <Pressable hitSlop={8} onPress={confirmDelete} accessibilityLabel="Xóa giao dịch">
+                <Pressable hitSlop={8} onPress={confirmDelete} accessibilityLabel={t.transaction.deleteLabel}>
                   <Ionicons name="trash-outline" size={22} color={theme.expense} />
                 </Pressable>
               ),
@@ -205,13 +208,16 @@ export default function TransactionFormScreen() {
         />
 
         <View style={[styles.segment, { backgroundColor: theme.backgroundElement }]}>
-          {(['expense', 'income'] as const).map((t) => (
+          {(['expense', 'income'] as const).map((kind) => (
             <Pressable
-              key={t}
-              onPress={() => changeType(t)}
-              style={[styles.segmentItem, type === t && { backgroundColor: t === 'income' ? theme.income : theme.expense }]}>
-              <ThemedText type="smallBold" style={type === t ? { color: theme.onTint } : undefined}>
-                {t === 'expense' ? 'Chi tiêu' : 'Thu nhập'}
+              key={kind}
+              onPress={() => changeType(kind)}
+              style={[
+                styles.segmentItem,
+                type === kind && { backgroundColor: kind === 'income' ? theme.income : theme.expense },
+              ]}>
+              <ThemedText type="smallBold" style={type === kind ? { color: theme.onTint } : undefined}>
+                {t.common[kind]}
               </ThemedText>
             </Pressable>
           ))}
@@ -226,12 +232,12 @@ export default function TransactionFormScreen() {
             keyboardType="number-pad"
             autoFocus={isNew && !initialScan}
             style={[styles.amountInput, { color: amountColor }]}
-            accessibilityLabel="Số tiền"
+            accessibilityLabel={t.transaction.amount}
           />
           <ThemedText style={[styles.currency, { color: amountColor }]}>₫</ThemedText>
         </View>
 
-        <ThemedText type="smallBold">Danh mục</ThemedText>
+        <ThemedText type="smallBold">{t.transaction.category}</ThemedText>
         <View style={styles.categoryGrid}>
           {visibleCategories.map((c) => {
             const selected = c.id === selectedCategoryId;
@@ -246,7 +252,7 @@ export default function TransactionFormScreen() {
                 ]}>
                 <CategoryIcon icon={c.icon} color={c.color} />
                 <ThemedText type="small" numberOfLines={1} style={styles.categoryName}>
-                  {c.name}
+                  {categoryLabel(c.name)}
                 </ThemedText>
               </Pressable>
             );
@@ -256,15 +262,15 @@ export default function TransactionFormScreen() {
             style={[styles.categoryItem, { borderColor: 'transparent' }]}>
             <CategoryIcon icon="add" color={theme.textSecondary} />
             <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.categoryName}>
-              Thêm mới
+              {t.transaction.addCategory}
             </ThemedText>
           </Pressable>
         </View>
 
-        <ThemedText type="smallBold">Ví</ThemedText>
+        <ThemedText type="smallBold">{t.transaction.wallet}</ThemedText>
         <View style={styles.chips}>
           {wallets.map((w) => (
-            <Chip key={w.id} label={w.name} selected={w.id === selectedWalletId} onPress={() => setWalletId(w.id)} />
+            <Chip key={w.id} label={walletLabel(w.name)} selected={w.id === selectedWalletId} onPress={() => setWalletId(w.id)} />
           ))}
         </View>
 
@@ -275,7 +281,7 @@ export default function TransactionFormScreen() {
           <TextInput
             value={note}
             onChangeText={setNote}
-            placeholder="Ghi chú (không bắt buộc)"
+            placeholder={t.transaction.notePlaceholder}
             placeholderTextColor={theme.textSecondary}
             style={[styles.noteInput, { color: theme.text }]}
             maxLength={200}
@@ -287,7 +293,7 @@ export default function TransactionFormScreen() {
           disabled={saving}
           style={({ pressed }) => [styles.saveButton, { backgroundColor: theme.tint }, (pressed || saving) && styles.pressed]}>
           <ThemedText type="smallBold" style={{ color: theme.onTint }}>
-            {isNew ? 'Lưu giao dịch' : 'Cập nhật'}
+            {isNew ? t.transaction.save : t.transaction.update}
           </ThemedText>
         </Pressable>
       </KeyboardAwareScrollView>

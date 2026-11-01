@@ -1,11 +1,12 @@
+import { strings } from '@/i18n';
+
 /**
  * Dates are stored as local "YYYY-MM-DD" strings. They sort correctly as text
- * and avoid timezone shifts that come with storing timestamps.
+ * and avoid timezone shifts that come with storing timestamps. Display
+ * formats follow the app language.
  */
 
 export type YearMonth = { year: number; month: number }; // month is 1-12
-
-const WEEKDAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
 
 const pad = (n: number) => n.toString().padStart(2, '0');
 
@@ -48,21 +49,29 @@ export function isSameMonth(a: YearMonth, b: YearMonth): boolean {
   return a.year === b.year && a.month === b.month;
 }
 
+/** "Tháng 10/2026", "October 2026", "2026年10月"… */
 export function formatMonth({ year, month }: YearMonth): string {
-  return `Tháng ${month}/${year}`;
+  return strings().format.month(month, year);
 }
 
-/** "2026-10-27" -> "27/10/2026" */
+/** "2026-10-27" -> "27/10/2026" in Vietnamese, "2026/10/27" in Japanese… */
 export function formatDate(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  return strings().format.date(d, m, y);
+}
+
+/** "2026-10-27" -> "27/10/2026" in every language, for files such as the CSV export. */
+export function formatDateDMY(iso: string): string {
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
 }
 
 /** Section header for a day in the transaction list: "Hôm nay", "Hôm qua" or "Thứ hai, 26/10/2026". */
 export function formatDayHeader(iso: string, today = todayISO()): string {
-  if (iso === today) return 'Hôm nay';
+  const format = strings().format;
+  if (iso === today) return format.today;
   const yesterday = fromISODate(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  if (iso === toISODate(yesterday)) return 'Hôm qua';
-  return `${WEEKDAYS[fromISODate(iso).getDay()]}, ${formatDate(iso)}`;
+  if (iso === toISODate(yesterday)) return format.yesterday;
+  return format.dayHeader(format.weekdays[fromISODate(iso).getDay()], formatDate(iso));
 }

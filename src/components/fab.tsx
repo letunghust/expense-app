@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
 import { showMessage } from '@/lib/dialog';
 import { scanTransferReceipt, stashScan } from '@/receipts/scan';
 
@@ -13,6 +14,7 @@ import { scanTransferReceipt, stashScan } from '@/receipts/scan';
  */
 export function AddTransactionButton() {
   const theme = useTheme();
+  const t = useStrings();
   const [scanning, setScanning] = useState(false);
 
   const scan = async () => {
@@ -22,7 +24,7 @@ export function AddTransactionButton() {
       if (result) router.push({ pathname: '/transaction/[id]', params: { id: 'new', scan: stashScan(result) } });
     } catch (error) {
       console.error(error);
-      showMessage('Lỗi', 'Không mở được ảnh. Vui lòng thử lại.');
+      showMessage(t.common.error, t.transaction.imageOpenFailed);
     } finally {
       setScanning(false);
     }
@@ -31,7 +33,7 @@ export function AddTransactionButton() {
   return (
     <View style={styles.container} pointerEvents="box-none">
       <Pressable
-        accessibilityLabel="Quét ảnh chuyển khoản"
+        accessibilityLabel={t.fab.scan}
         onPress={scan}
         disabled={scanning}
         style={({ pressed }) => [
@@ -43,7 +45,7 @@ export function AddTransactionButton() {
         {scanning ? <ActivityIndicator color={theme.tint} /> : <Ionicons name="scan-outline" size={24} color={theme.tint} />}
       </Pressable>
       <Pressable
-        accessibilityLabel="Thêm giao dịch"
+        accessibilityLabel={t.fab.add}
         onPress={() => router.push('/transaction/new')}
         style={({ pressed }) => [styles.button, styles.large, { backgroundColor: theme.tint }, pressed && styles.pressed]}>
         <Ionicons name="add" size={32} color={theme.onTint} />

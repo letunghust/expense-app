@@ -11,11 +11,14 @@ import { Spacing } from '@/constants/theme';
 import { useDbQuery, useNotifyDataChanged } from '@/db/data-context';
 import { createWallet, deleteWallet, listWallets, updateWallet } from '@/db/repo';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
+import { nameToStore, walletLabel } from '@/i18n/defaults';
 import { confirmDestructive, showMessage } from '@/lib/dialog';
 import { formatAmountInput, groupDigits, parseAmount } from '@/lib/money';
 import { cleanUpReceipts } from '@/receipts/scan';
 
 export default function WalletFormScreen() {
+  const t = useStrings();
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
   const db = useSQLiteContext();
@@ -29,19 +32,22 @@ export default function WalletFormScreen() {
   const [editedName, setName] = useState<string>();
   const [editedIcon, setIcon] = useState<string>();
   const [editedInitial, setInitialText] = useState<string>();
-  const name = editedName ?? wallet?.name ?? '';
+  const name = editedName ?? (wallet ? walletLabel(wallet.name) : '');
   const icon = editedIcon ?? wallet?.icon ?? WALLET_ICONS[0];
   const initialText = editedInitial ?? (wallet?.initialBalance ? groupDigits(wallet.initialBalance) : '');
 
   const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      showMessage('Thiếu tên', 'Vui lòng nhập tên ví.');
+      showMessage(t.wallets.missingName, t.wallets.missingNameMessage);
       return;
     }
     const initialBalance = parseAmount(initialText) ?? 0;
     if (isNew) await createWallet(db, { name: trimmed, icon, initialBalance });
-    else await updateWallet(db, { id: Number(id), name: trimmed, icon, initialBalance });
+    else {
+      const stored = wallet ? nameToStore(trimmed, wallet.name, walletLabel) : trimmed;
+      await updateWallet(db, { id: Number(id), name: stored, icon, initialBalance });
+    }
     notifyChanged();
     router.back();
   };
@@ -49,17 +55,15 @@ export default function WalletFormScreen() {
   const confirmDelete = () => {
     if (!wallet || !wallets) return;
     if (wallets.length <= 1) {
-      showMessage('Không thể xóa', 'Bạn cần giữ lại ít nhất một ví.');
+      showMessage(t.wallets.cannotDelete, t.wallets.keepOne);
       return;
     }
     const message =
-      wallet.transactionCount > 0
-        ? `Ví này có ${wallet.transactionCount} giao dịch. Tất cả sẽ bị xóa vĩnh viễn cùng với ví.`
-        : 'Ví này sẽ bị xóa.';
+      wallet.transactionCount > 0 ? t.wallets.deleteWithTransactions(wallet.transactionCount) : t.wallets.deleteEmpty;
     confirmDestructive({
-      title: `Xóa ví "${wallet.name}"?`,
+      title: t.wallets.deleteTitle(walletLabel(wallet.name)),
       message,
-      confirmText: 'Xóa',
+      confirmText: t.common.delete,
       onConfirm: async () => {
         await deleteWallet(db, wallet.id);
         await cleanUpReceipts(db);
@@ -71,18 +75,18 @@ export default function WalletFormScreen() {
 
   return (
     <ThemedView style={styles.screen}>
-      <Stack.Screen options={{ title: isNew ? 'Thêm ví' : 'Sửa ví' }} />
+      <Stack.Screen options={{ title: isNew ? t.wallets.newTitle : t.wallets.editTitle }} />
       <KeyboardAwareScrollView contentContainerStyle={styles.content}>
-        <FormLabel>Tên ví</FormLabel>
+        <FormLabel>{t.wallets.name}</FormLabel>
         <TextField
           value={name}
           onChangeText={setName}
-          placeholder="Ví dụ: Ví MoMo, Vietcombank"
+          placeholder={t.wallets.namePlaceholder}
           maxLength={40}
           autoFocus={isNew}
         />
 
-        <FormLabel>Số dư ban đầu</FormLabel>
+        <FormLabel>{t.wallets.initialBalance}</FormLabel>
         <TextField
           value={initialText}
           onChangeText={(text) => setInitialText(formatAmountInput(text))}
@@ -90,11 +94,11 @@ export default function WalletFormScreen() {
           keyboardType="number-pad"
         />
 
-        <FormLabel>Biểu tượng</FormLabel>
+        <FormLabel>{t.wallets.icon}</FormLabel>
         <IconPicker icons={WALLET_ICONS} value={icon} color={theme.tint} onChange={setIcon} />
 
-        <Button label={isNew ? 'Tạo ví' : 'Lưu thay đổi'} onPress={save} />
-        {!isNew && <Button label="Xóa ví" variant="danger" onPress={confirmDelete} />}
+        <Button label={isNew ? t.wallets.create : t.common.saveChanges} onPress={save} />
+        {!isNew && <Button label={t.wallets.delete} variant="danger" onPress={confirmDelete} />}
       </KeyboardAwareScrollView>
     </ThemedView>
   );

@@ -10,6 +10,8 @@ import { Spacing } from '@/constants/theme';
 import { useDbQuery, useNotifyDataChanged } from '@/db/data-context';
 import { listBudgets, setBudget } from '@/db/repo';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
+import { categoryLabel } from '@/i18n/defaults';
 import { currentYearMonth, monthRange } from '@/lib/dates';
 import { showMessage } from '@/lib/dialog';
 import { formatAmountInput, formatVND, groupDigits, parseAmount } from '@/lib/money';
@@ -19,6 +21,7 @@ export default function BudgetFormScreen() {
   const db = useSQLiteContext();
   const notifyChanged = useNotifyDataChanged();
   const theme = useTheme();
+  const t = useStrings();
   const [editedAmount, setAmountText] = useState<string>();
 
   const row = useDbQuery(
@@ -37,7 +40,7 @@ export default function BudgetFormScreen() {
   const onSave = () => {
     const amount = parseAmount(amountText);
     if (amount == null) {
-      showMessage('Thiếu số tiền', 'Vui lòng nhập hạn mức lớn hơn 0.');
+      showMessage(t.budgets.missingAmount, t.budgets.missingAmountMessage);
       return;
     }
     save(amount);
@@ -50,15 +53,15 @@ export default function BudgetFormScreen() {
       <View style={styles.header}>
         <CategoryIcon icon={row.icon} color={row.color} size={48} />
         <View>
-          <ThemedText type="smallBold">{row.name}</ThemedText>
+          <ThemedText type="smallBold">{categoryLabel(row.name)}</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Tháng này đã chi {formatVND(row.spent)}
+            {t.budgets.spentThisMonth(formatVND(row.spent))}
           </ThemedText>
         </View>
       </View>
 
       <ThemedText type="small" themeColor="textSecondary">
-        Hạn mức chi tiêu mỗi tháng
+        {t.budgets.monthlyLimit}
       </ThemedText>
       <View style={[styles.amountBox, { borderBottomColor: theme.tint }]}>
         <TextInput
@@ -69,20 +72,20 @@ export default function BudgetFormScreen() {
           keyboardType="number-pad"
           autoFocus
           style={[styles.amountInput, { color: theme.text }]}
-          accessibilityLabel="Hạn mức"
+          accessibilityLabel={t.budgets.limit}
         />
         <ThemedText style={styles.currency}>₫</ThemedText>
       </View>
 
       <Pressable onPress={onSave} style={[styles.button, { backgroundColor: theme.tint }]}>
         <ThemedText type="smallBold" style={{ color: theme.onTint }}>
-          Lưu hạn mức
+          {t.budgets.save}
         </ThemedText>
       </Pressable>
       {row.limit != null && (
         <Pressable onPress={() => save(null)} style={styles.button}>
           <ThemedText type="smallBold" themeColor="expense">
-            Bỏ hạn mức
+            {t.budgets.remove}
           </ThemedText>
         </Pressable>
       )}

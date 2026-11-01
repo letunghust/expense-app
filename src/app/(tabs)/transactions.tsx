@@ -15,6 +15,8 @@ import { useDbQuery } from '@/db/data-context';
 import { getCategory, listTransactions } from '@/db/repo';
 import type { TransactionRow, TransactionType } from '@/db/types';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
+import { categoryLabel } from '@/i18n/defaults';
 import { currentYearMonth, formatDayHeader, monthRange, type YearMonth } from '@/lib/dates';
 import { formatSignedVND, formatVND } from '@/lib/money';
 
@@ -39,6 +41,7 @@ function groupByDay(rows: TransactionRow[]): Section[] {
 
 export default function TransactionsScreen() {
   const theme = useTheme();
+  const t = useStrings();
   // Set by the overview screen when the user taps a category or "Xem tất cả".
   const params = useLocalSearchParams<{ year?: string; month?: string; categoryId?: string }>();
 
@@ -82,27 +85,27 @@ export default function TransactionsScreen() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Tìm theo ghi chú, danh mục, ví…"
+            placeholder={t.transactions.searchPlaceholder}
             placeholderTextColor={theme.textSecondary}
             style={[styles.searchInput, { color: theme.text }]}
             returnKeyType="search"
           />
           {search !== '' && (
-            <Pressable hitSlop={8} onPress={() => setSearch('')} accessibilityLabel="Xóa tìm kiếm">
+            <Pressable hitSlop={8} onPress={() => setSearch('')} accessibilityLabel={t.transactions.clearSearch}>
               <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
             </Pressable>
           )}
         </View>
         <View style={styles.chips}>
-          <Chip label="Tất cả" selected={typeFilter === 'all'} onPress={() => setTypeFilter('all')} />
-          <Chip label="Chi tiêu" selected={typeFilter === 'expense'} onPress={() => setTypeFilter('expense')} />
-          <Chip label="Thu nhập" selected={typeFilter === 'income'} onPress={() => setTypeFilter('income')} />
+          <Chip label={t.common.all} selected={typeFilter === 'all'} onPress={() => setTypeFilter('all')} />
+          <Chip label={t.common.expense} selected={typeFilter === 'expense'} onPress={() => setTypeFilter('expense')} />
+          <Chip label={t.common.income} selected={typeFilter === 'income'} onPress={() => setTypeFilter('income')} />
           {category && (
             <Pressable
               onPress={() => setCategoryId(undefined)}
               style={[styles.categoryChip, { backgroundColor: theme.tint }]}>
               <ThemedText type="small" style={{ color: theme.onTint }} numberOfLines={1}>
-                {category.name}
+                {categoryLabel(category.name)}
               </ThemedText>
               <Ionicons name="close" size={14} color={theme.onTint} />
             </Pressable>
@@ -141,12 +144,12 @@ export default function TransactionsScreen() {
         ListEmptyComponent={
           rows ? (
             isFiltered ? (
-              <EmptyState icon="search" title="Không tìm thấy giao dịch phù hợp" />
+              <EmptyState icon="search" title={t.transactions.noMatches} />
             ) : (
               <EmptyState
                 icon="receipt-outline"
-                title="Tháng này chưa có giao dịch"
-                message="Bấm nút + để thêm khoản thu hoặc chi."
+                title={t.transactions.emptyMonth}
+                message={t.transactions.emptyMonthHint}
               />
             )
           ) : undefined

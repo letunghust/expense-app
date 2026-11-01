@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
+import { useStrings } from '@/i18n';
 import { formatCompactVND } from '@/lib/money';
 
 const LABELLED_DAYS = new Set([1, 5, 10, 15, 20, 25]);
@@ -9,13 +10,14 @@ const LABELLED_DAYS = new Set([1, 5, 10, 15, 20, 25]);
 /** One bar per day of the month; `totals[i]` is the spending on day i + 1. */
 export function DailyBarChart({ totals, height = 120 }: { totals: number[]; height?: number }) {
   const theme = useTheme();
+  const t = useStrings();
   const max = Math.max(...totals, 0);
   const lastDay = totals.length;
 
   return (
     <View style={styles.container}>
       <ThemedText type="small" themeColor="textSecondary" style={styles.max}>
-        {max > 0 ? `Cao nhất: ${formatCompactVND(max)}` : ' '}
+        {max > 0 ? t.home.highest(formatCompactVND(max)) : ' '}
       </ThemedText>
       <View style={[styles.bars, { height }]}>
         {totals.map((total, i) => (
