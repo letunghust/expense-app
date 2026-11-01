@@ -32,6 +32,14 @@ Set up Playwright once per scratch dir (not a project dependency):
    opening the link on an iPhone.
 3. Tesseract warnings `Parameter not found: ...` in the logs are harmless.
 
+4. **On-screen keyboard** (desktop Chrome has none): use Chrome inside the Android emulator
+   (see the test-android skill). `adb reverse tcp:8080 tcp:8080` so `http://localhost:8080` is a
+   secure context there, open it with
+   `adb shell am start -a android.intent.action.VIEW -d http://localhost:8080/transaction/new com.android.chrome`,
+   tap the note field near the bottom, screenshot. To inspect the page:
+   `adb forward tcp:9222 localabstract:chrome_devtools_remote`, then `chromium.connectOverCDP('http://localhost:9222')`.
+   Mobile Chrome, like iPhone Safari, shrinks only the visual viewport and pans it.
+
 ## Deploy
 
 `scripts/deploy-web.sh` (export, precache list, `wrangler deploy`). Then run step 1 against the live URL.
@@ -44,5 +52,9 @@ Set up Playwright once per scratch dir (not a project dependency):
   unvisited screens fail offline. Precache URLs must stay unencoded (`[id]-….js`).
 - Import icons as `@expo/vector-icons/Ionicons`, never `{ Ionicons } from '@expo/vector-icons'`:
   the barrel import adds 19 icon fonts (~4 MB) to the build.
+- The keyboard: browsers pan the visual viewport to the focused field, which moved the app off
+  screen. `#root` is `position: fixed` and follows `visualViewport` (script in public/index.html);
+  `src/lib/keyboard.web.ts` then scrolls the field into view. Don't resize `html` instead: the
+  visual viewport stays panned and the screen goes blank.
 - On iPhone, data in a Safari tab and in the home-screen app are separate; users must use the
   home-screen icon.

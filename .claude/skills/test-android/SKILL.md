@@ -20,7 +20,10 @@ APKs go to the scratchpad, not the repo).
 
 ## Steps
 
-1. **Emulator**: `scripts/emulator.sh` boots it headless if needed and loads the screenshots.
+1. **Emulator**: start it as a *background* command (the tool kills child processes when a
+   foreground command ends, so `emulator.sh`'s own nohup start dies with it):
+   `~/Android/Sdk/emulator/emulator -avd chitieu -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -memory 3072 -no-snapshot-save`
+   with run_in_background, then `scripts/emulator.sh` waits for boot and loads the screenshots.
 2. **Install**:
    - EAS build: download the `.apk` from the build's artifact URL, then `adb install -r FILE.apk`.
    - JS-only change (no native/module/app.json plugin changes): `scripts/repack-js.sh BASE.apk WORKDIR`
@@ -36,6 +39,12 @@ APKs go to the scratchpad, not the repo).
    `scripts/ui.sh back` returns to the main screen for the next image.
 5. Scan every screenshot. Expected: an amount, the transfer date, and a note
    ("message · recipient" or "Chuyển khoản cho …"). Only then send the link.
+
+## Keyboard checks
+
+The emulator has a real on-screen keyboard. Forms autofocus the amount field, so: open the form,
+`scripts/ui.sh back` to close the keyboard, then tap the note field near the bottom and screenshot.
+The field and the save button must sit above the keyboard.
 
 ## Lessons from past failures
 
