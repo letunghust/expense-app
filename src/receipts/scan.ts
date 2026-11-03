@@ -21,7 +21,7 @@ export type ScanResult = ReceiptData & {
 };
 
 /**
- * Lets the user pick a transfer screenshot, keeps a copy and reads the
+ * Lets the user pick a transfer screenshot or shop receipt photo, keeps a copy and reads the
  * transfer details from it. Resolves to null if the user cancels.
  */
 export async function scanTransferReceipt(): Promise<ScanResult | null> {

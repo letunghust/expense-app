@@ -189,6 +189,100 @@ describe('parseTransferReceipt', () => {
   });
 });
 
+/** Rotates OCR boxes like a photo taken at a slant: each line moves up by `slope` × its x. */
+function tilt(slope: number, lines: OcrLine[]): OcrLine[] {
+  return lines.map((line) => {
+    const shift = (slope * (line.left + line.right)) / 2;
+    return { ...line, top: line.top - shift, bottom: line.bottom - shift };
+  });
+}
+
+describe('shop receipts', () => {
+  test('tilted supermarket photo: discounts column, quantities, total after discounts', () => {
+    const lines = tilt(0.045, [
+      ...row(100, 50, [90, 'WinMart*']),
+      ...row(170, 26, [100, 'PHIẾU TÍNH TIỀN']),
+      ...row(210, 20, [100, 'O1/11/2026 20:06| MSCH:1234|'], [440, 'PTT:123401261100999']),
+      ...row(240, 20, [100, 'NV:01234567| Mã CQT: M1-26-ABC1-11000000999']),
+      ...row(270, 22, [100, 'Mặt hàng'], [420, 'KM'], [530, 'T.Tiền']),
+      ...row(305, 22, [100, "B'FAST Sữa hạt ngũ cốc ca.."], [410, '-11,600'], [525, '57,800']),
+      ...row(340, 22, [100, 'VNM Sữa tươi tiệt trùng soc..'], [410, '-3,700'], [525, '36,300']),
+      ...row(375, 22, [100, 'LOTTE Bánh Bouchee CHO...'], [410, '-7,900'], [525, '21,900']),
+      ...row(410, 22, [100, 'OREO Bánh quy kem socola...'], [525, '20,000']),
+      ...row(440, 22, [100, '2'], [200, 'x'], [270, '10,000']),
+      ...row(475, 22, [100, 'BẢO NGỌC Bánh mỳ paket ...'], [525, '14,900']),
+      ...row(520, 24, [100, 'TỔNG TIỀN HÀNG'], [395, '-23,200'], [520, '150,900']),
+      ...row(550, 22, [100, 'Tiền cần thanh toán'], [520, '150,900']),
+      ...row(590, 20, [100, 'Truy cập xuathoadon.winmart.vn trong 60 phút']),
+    ]);
+    expect(parseTransferReceipt(lines, '2026-11-03')).toEqual({
+      amount: 150_900,
+      date: '2026-11-01',
+      store: 'WinMart',
+      content:
+        "B'FAST Sữa hạt ngũ cốc ca, VNM Sữa tươi tiệt trùng soc, LOTTE Bánh Bouchee CHO, OREO Bánh quy kem socola, " +
+        'BẢO NGỌC Bánh mỳ paket',
+      categoryHint: 'Mua sắm',
+    });
+  });
+
+  test('paid entirely with points: the total of the goods, never the points balance', () => {
+    const lines = [
+      ...row(190, 60, [150, 'WinMart']),
+      ...row(300, 36, [155, 'PHIEU TÍNH TIÊN']),
+      ...row(370, 30, [155, '02/11/2026 21:28|MSCH:9Z99|PTT:9Z9901261100111']),
+      ...row(460, 30, [155, 'Mặt hàng'], [735, 'KM'], [915, 'T.Tiền']),
+      ...row(525, 30, [155, 'MEAT DELI Phi lê ức gà'], [695, '-20,363'], [920, '36,200']),
+      ...row(570, 30, [155, '0.501 x 112,900']),
+      ...row(640, 34, [155, 'TỔNG TIỀN HÀNG'], [665, '-20,363'], [920, '36,200']),
+      ...row(680, 30, [150, 'Khấu trừ, ưu đãi khác'], [920, '36,200']),
+      ...row(725, 30, [150, 'Tiền cần thanh toán'], [1015, '0']),
+      ...row(800, 30, [145, 'SĐT Khách: ***123'], [530, 'Điểm tích lũy:'], [875, '3,676,480']),
+    ];
+    expect(parseTransferReceipt(lines, '2026-11-03')).toEqual({
+      amount: 36_200,
+      date: '2026-11-02',
+      store: 'WinMart',
+      content: 'MEAT DELI Phi lê ức gà',
+      categoryHint: 'Mua sắm',
+    });
+  });
+
+  test('whole rows read as one line, cash given and change ignored', () => {
+    const lines = [
+      ...row(50, 40, [100, 'Co.opmart Rạch Miễu']),
+      ...row(110, 30, [100, 'HÓA ĐƠN BÁN HÀNG']),
+      ...row(150, 24, [100, 'Ngày: 28/10/2026 18:02']),
+      ...row(190, 24, [100, 'Tên hàng SL Đơn giá Thành tiền']),
+      ...row(225, 24, [100, 'Cà phê sữa đá 2 25.000 50.000']),
+      ...row(260, 24, [100, 'Bánh mì thịt 1 35.000 35.000']),
+      ...row(300, 26, [100, 'Tổng cộng: 85.000']),
+      ...row(335, 24, [100, 'Tiền khách đưa: 100.000']),
+      ...row(370, 24, [100, 'Tiền thừa: 15.000']),
+    ];
+    const result = parseTransferReceipt(lines, TODAY);
+    expect(result.amount).toBe(85_000);
+    expect(result.store).toBe('Co.opmart');
+    expect(result.content).toBe('Cà phê sữa đá, Bánh mì thịt');
+    expect(result.categoryHint).toBe('Mua sắm');
+  });
+
+  test('unknown shop: items still give the category', () => {
+    const lines = [
+      ...row(50, 30, [100, 'PHIẾU THANH TOÁN']),
+      ...row(90, 24, [100, 'Tên hàng'], [500, 'Thành tiền']),
+      ...row(125, 24, [100, 'Trà sữa trân châu'], [500, '45,000']),
+      ...row(165, 26, [100, 'Tổng tiền'], [500, '45,000']),
+    ];
+    expect(parseTransferReceipt(lines, TODAY)).toMatchObject({
+      amount: 45_000,
+      store: undefined,
+      content: 'Trà sữa trân châu',
+      categoryHint: 'Ăn uống',
+    });
+  });
+});
+
 describe('guessCategory', () => {
   test('matches whole words and prefers earlier categories', () => {
     expect(guessCategory('GRABFOOD 123')).toBe('Ăn uống');
@@ -207,5 +301,10 @@ describe('receiptNote', () => {
     expect(receiptNote({ content: 'Tra sua' })).toBe('Tra sua');
     expect(receiptNote({})).toBe('');
     expect(receiptNote({ content: 'x'.repeat(300) })).toHaveLength(200);
+  });
+
+  test('shop receipts start with the shop', () => {
+    expect(receiptNote({ store: 'WinMart', content: 'Sữa tươi, Bánh mì' })).toBe('WinMart: Sữa tươi, Bánh mì');
+    expect(receiptNote({ store: 'WinMart' })).toBe('WinMart');
   });
 });

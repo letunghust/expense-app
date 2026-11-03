@@ -1,6 +1,7 @@
 /**
  * Pulls the amount, date, recipient and message out of the text that OCR
- * reads from a bank-transfer / e-wallet confirmation screenshot.
+ * reads from a bank-transfer / e-wallet confirmation screenshot, or the
+ * total, store and items from a photo of a printed shop receipt.
  *
  * Bank apps lay these screens out as "label  value" rows (label on the left,
  * value right-aligned) or with the value under its label, so values are found
@@ -17,13 +18,18 @@ export type ReceiptData = {
   date?: string; // YYYY-MM-DD
   recipient?: string;
   content?: string;
+  /** Shop that printed the receipt, e.g. "WinMart". */
+  store?: string;
   /** Name of the default expense category the message suggests, e.g. "Ăn uống". */
   categoryHint?: string;
 };
 
 // Labels are compared after normalizeForSearch (lowercase, no diacritics).
 const AMOUNT_LABELS = ['so tien', 'tong tien', 'tong cong', 'thanh toan', 'amount', 'total'];
-const NOT_AMOUNT_LABELS = ['phi', 'so du', 'han muc', 'fee', 'balance', 'vat'];
+const NOT_AMOUNT_LABELS = [
+  'phi', 'so du', 'han muc', 'fee', 'balance', 'vat',
+  'diem', 'tich luy', 'giam gia', 'chiet khau', 'khuyen mai', 'uu dai', 'khau tru', 'tien thua', 'khach dua',
+];
 const RECIPIENT_LABELS = [
   'ten nguoi thu huong',
   'nguoi thu huong',
@@ -123,7 +129,8 @@ const CATEGORY_KEYWORDS: [category: string, keywords: string[]][] = [
     'Mua sắm',
     [
       'shopee', 'lazada', 'tiki', 'tiktok shop', 'sendo', 'winmart', 'coopmart', 'bach hoa xanh', 'aeon',
-      'lotte mart', 'emart', 'quan ao', 'sieu thi', 'mua sam', 'uniqlo', 'the gioi di dong', 'dien may xanh',
+      'lotte mart', 'emart', 'vinmart', 'co opmart', 'co op food', 'big c', 'mega market', 'kingfoodmart', 'circle k',
+      'gs25', 'familymart', '7 eleven', 'ministop', 'quan ao', 'sieu thi', 'mua sam', 'uniqlo', 'the gioi di dong', 'dien may xanh',
       'cellphones',
     ],
   ],
@@ -151,11 +158,11 @@ const MIN_AMOUNT = 1_000;
 const MAX_AMOUNT = 100_000_000_000;
 
 export function parseTransferReceipt(ocrLines: OcrLine[], today: string): ReceiptData {
-  const lines = ocrLines
-    .map((line) => ({ ...line, text: line.text.replace(/\s+/g, ' ').trim() }))
-    .filter((line) => line.text)
-    .sort((a, b) => a.top - b.top || a.left - b.left);
+  const lines = straighten(
+    ocrLines.map((line) => ({ ...line, text: line.text.replace(/\s+/g, ' ').trim() })).filter((line) => line.text)
+  ).sort((a, b) => a.top - b.top || a.left - b.left);
 
+  if (isShopReceipt(lines)) return parseShopReceipt(lines, today);
   const recipient = findLabeledValue(lines, RECIPIENT_LABELS, isName, isNameContinuation);
   const sender = findLabeledValue(lines, SENDER_LABELS, isName, isNameContinuation);
   const message = findLabeledValue(lines, CONTENT_LABELS, (text) => /\p{L}/u.test(text), () => true);
@@ -174,10 +181,14 @@ export function parseTransferReceipt(ocrLines: OcrLine[], today: string): Receip
  * `transferTo` words a recipient-only note in the app language.
  */
 export function receiptNote(
-  { recipient, content }: ReceiptData,
+  { recipient, content, store }: ReceiptData,
   transferTo = (name: string) => `Chuyển khoản cho ${name}`
 ): string {
-  const note = content && recipient ? `${content} · ${recipient}` : content || (recipient ? transferTo(recipient) : '');
+  const note = store
+    ? [store, content].filter(Boolean).join(': ')
+    : content && recipient
+      ? `${content} · ${recipient}`
+      : content || (recipient ? transferTo(recipient) : '');
   return note.slice(0, 200);
 }
 
@@ -191,22 +202,11 @@ export function guessCategory(text: string): string | undefined {
 function findAmount(lines: OcrLine[]): number | undefined {
   const candidates: { value: number; score: number; line: OcrLine }[] = [];
   for (const line of lines) {
-    MONEY.lastIndex = 0;
-    for (let match = MONEY.exec(line.text); match; match = MONEY.exec(line.text)) {
-      const [, sign = '', number, separator, strayDigit, unit, strayLetter] = match;
-      // A digit glued to an ungrouped number is just part of a longer code.
-      if (strayDigit && !separator) continue;
-      const value = Number(number.replace(/[.,]/g, ''));
-      const before = line.text.slice(0, match.index);
-      const hasCurrency = Boolean(unit || strayLetter || strayDigit) || CURRENCY_BEFORE.test(before);
-      // Ungrouped digit runs are usually account numbers, codes or years.
-      if (!separator && !hasCurrency) continue;
-      if (value < MIN_AMOUNT || value > MAX_AMOUNT) continue;
-
+    for (const { value, negative, hasCurrency, before } of amountsIn(line.text)) {
       const context = ` ${normalizeWords(`${labelFor(line, lines)?.text ?? ''} ${before}`)} `;
       let score = 0;
       if (hasCurrency) score += 3;
-      if (/[-−–]/.test(sign) || MINUS_BEFORE.test(before)) score += 2;
+      if (negative) score += 2;
       if (AMOUNT_LABELS.some((label) => context.includes(` ${label} `))) score += 4;
       if (NOT_AMOUNT_LABELS.some((label) => context.includes(` ${label} `))) score -= 8;
       candidates.push({ value, score, line });
@@ -228,13 +228,219 @@ function findAmount(lines: OcrLine[]): number | undefined {
   return bestScore > 0 ? best.value : undefined;
 }
 
+type Amount = { value: number; negative: boolean; hasCurrency: boolean; before: string };
+
+/** The amounts of money written in one line of text, skipping codes, years and phone numbers. */
+function amountsIn(text: string): Amount[] {
+  const amounts: Amount[] = [];
+  MONEY.lastIndex = 0;
+  for (let match = MONEY.exec(text); match; match = MONEY.exec(text)) {
+    const [, sign = '', number, separator, strayDigit, unit, strayLetter] = match;
+    // A digit glued to an ungrouped number is just part of a longer code.
+    if (strayDigit && !separator) continue;
+    const value = Number(number.replace(/[.,]/g, ''));
+    const before = text.slice(0, match.index);
+    const hasCurrency = Boolean(unit || strayLetter || strayDigit) || CURRENCY_BEFORE.test(before);
+    // Ungrouped digit runs are usually account numbers, codes or years.
+    if (!separator && !hasCurrency) continue;
+    if (value < MIN_AMOUNT || value > MAX_AMOUNT) continue;
+    amounts.push({ value, negative: /[-−–]/.test(sign) || MINUS_BEFORE.test(before), hasCurrency, before });
+  }
+  return amounts;
+}
+
+// ---------- Shop receipts ----------
+
+/** Words only printed on shop receipts, never on transfer screens. */
+const SHOP_RECEIPT_WORDS = [
+  'phieu tinh tien', 'hoa don ban hang', 'hoa don ban le', 'phieu thanh toan', 'tong tien hang', 'mat hang',
+  'ten hang', 'don gia', 'tien khach dua', 'tien thua', 'tien tra lai',
+];
+/**
+ * Labels of the receipt total, best first: what the customer pays (after
+ * discounts) before the total of the goods. A paid amount of 0 (all paid with
+ * points or vouchers) has no amount, so the total of the goods is used instead.
+ */
+const TOTAL_LABELS = [
+  'tien can thanh toan', 'khach can thanh toan', 'khach can tra', 'khach phai tra', 'can thanh toan',
+  'phai thanh toan', 'tong thanh toan', 'tong tien thanh toan', 'tong cong', 'tong tien hang', 'tong tien',
+  'tong', 'grand total', 'total', 'thanh toan',
+];
+/**
+ * Column headings above the items; the first row of them starts the item list.
+ * OCR reads them one per line ("Mặt hàng", "KM", "T.Tiền") or as one line.
+ */
+const ITEM_HEADING = /^(m*at hang|ten hang|ten san pham|san pham|hang hoa|ma hang|t ?tien|thanh tien|don gia|gia|sl|so luong|km|dvt)$/;
+const ITEM_HEADINGS_LINE = /^(m*at hang|ten hang|ten san pham|san pham|hang hoa|ma hang)( (sl|so luong|don gia|gia|km|t ?tien|thanh tien|dvt))+$/;
+const isItemHeading = (line: OcrLine) => {
+  const words = normalizeWords(line.text);
+  return ITEM_HEADING.test(words) || ITEM_HEADINGS_LINE.test(words);
+};
+/** Shop names as printed on the receipt (compared without spaces or diacritics), longest first where one contains another. */
+const STORES: [name: string, ...keys: string[]][] = [
+  ['WinMart', 'winmart', 'vinmart'],
+  ['Co.opmart', 'coopmart'],
+  ['Co.op Food', 'coopfood'],
+  ['Bách hóa Xanh', 'bachhoaxanh'],
+  ['Lotte Mart', 'lottemart'],
+  ['AEON', 'aeon'],
+  ['Emart', 'emart'],
+  ['Big C', 'bigc'],
+  ['MM Mega Market', 'megamarket'],
+  ['Kingfoodmart', 'kingfoodmart'],
+  ['Circle K', 'circlek'],
+  ['GS25', 'gs25'],
+  ['FamilyMart', 'familymart'],
+  ['7-Eleven', '7eleven'],
+  ['Ministop', 'ministop'],
+  ['Pharmacity', 'pharmacity'],
+  ['Long Châu', 'longchau'],
+  ['Highlands Coffee', 'highlands'],
+  ['Phúc Long', 'phuclong'],
+  ['Starbucks', 'starbucks'],
+  ['The Coffee House', 'thecoffeehouse'],
+  ['KFC', 'kfc'],
+  ['Lotteria', 'lotteria'],
+  ['Jollibee', 'jollibee'],
+  ['Thế Giới Di Động', 'thegioididong'],
+  ['Điện Máy Xanh', 'dienmayxanh'],
+  ['Uniqlo', 'uniqlo'],
+];
+const MAX_ITEMS = 5;
+
+function isShopReceipt(lines: OcrLine[]): boolean {
+  return lines.some((line) => {
+    const words = ` ${normalizeWords(line.text)} `;
+    return SHOP_RECEIPT_WORDS.some((w) => words.includes(` ${w} `));
+  });
+}
+
+function parseShopReceipt(lines: OcrLine[], today: string): ReceiptData {
+  const store = findStore(lines);
+  const items = findItems(lines);
+  const content = items.length > 0 ? items.join(', ') : undefined;
+  return {
+    amount: findTotal(lines) ?? findAmount(lines),
+    date: findDate(lines, today),
+    store,
+    content,
+    categoryHint: guessCategory(store ?? '') ?? guessCategory(content ?? ''),
+  };
+}
+
+/** The receipt total: the right-most amount on the row of the best total label. */
+function findTotal(lines: OcrLine[]): number | undefined {
+  for (const label of TOTAL_LABELS) {
+    for (const line of lines) {
+      const rest = matchLabel(line.text, [label]);
+      if (rest == null) continue;
+      // "Tổng tiền KM", "Tổng giảm giá": a total of discounts, not of the bill.
+      const restWords = ` ${normalizeWords(rest)} `;
+      if ([...NOT_AMOUNT_LABELS, 'km'].some((w) => restWords.includes(` ${w} `))) continue;
+      const h = height(line);
+      const cells = [
+        { left: line.left, text: rest },
+        ...lines.filter((o) => o !== line && o.left >= line.right - h && Math.abs(centerY(o) - centerY(line)) <= h * 0.6),
+      ].sort((a, b) => b.left - a.left);
+      // Nothing on the row: some receipts print the amount under its label.
+      const under = below(line, lines, 1);
+      if (under) cells.push({ left: under.left, text: under.text });
+      for (const cell of cells) {
+        const amounts = amountsIn(cell.text).filter((a) => !a.negative);
+        if (amounts.length > 0) return amounts[amounts.length - 1].value;
+      }
+    }
+  }
+  return undefined;
+}
+
+function findStore(lines: OcrLine[]): string | undefined {
+  for (const line of lines) {
+    const compact = normalizeWords(line.text).replace(/ /g, '');
+    const store = STORES.find(([, ...keys]) => keys.some((key) => compact.includes(key)));
+    if (store) return store[0];
+  }
+  return undefined;
+}
+
+/** Item names: lines with words between the column headings and the total. */
+function findItems(lines: OcrLine[]): string[] {
+  const heading = lines.find(isItemHeading);
+  if (!heading) return [];
+  const headingRow = lines.filter((o) => isItemHeading(o) && Math.abs(centerY(o) - centerY(heading)) <= height(heading));
+  const start = Math.max(...headingRow.map((o) => o.bottom));
+  const total = lines.find((o) => o.top >= start && matchLabel(o.text, TOTAL_LABELS) != null);
+  const end = total ? centerY(total) : Infinity;
+  return lines
+    .filter((o) => centerY(o) > start && centerY(o) < end && !isItemHeading(o))
+    .map((o) => cleanItem(o.text))
+    .filter(isItemName)
+    .slice(0, MAX_ITEMS);
+}
+
+function isItemName(text: string): boolean {
+  const letters = text.match(/\p{L}/gu)?.length ?? 0;
+  const digits = text.match(/\d/g)?.length ?? 0;
+  // "2 x 10.000", "0.501 x 112,900": quantity and unit price.
+  return letters >= 3 && letters > digits && !/^[\d.,]+\s*[x×*]\s*[\d.,]*$/i.test(text);
+}
+
+/** Drops the prices OCR kept on the item's line and the "..." of a cut-off name. */
+function cleanItem(text: string): string {
+  return text
+    .replace(/(\s+[-−–]?\d[\d.,]*)+\s*$/u, '')
+    .replace(/\s*(\.+|…)\s*$/u, '')
+    .trim();
+}
+
+// ---------- Skew ----------
+
+/**
+ * Photos of paper receipts are rarely straight, so the amounts at the right of
+ * a row sit higher or lower than its label. Finds the slope that lines up the
+ * most pairs of lines into rows and straightens the boxes by it. Screenshots
+ * are straight and stay untouched.
+ */
+function straighten(lines: OcrLine[]): OcrLine[] {
+  const boxes = lines.map((l) => ({ x: (l.left + l.right) / 2, y: centerY(l), h: height(l) }));
+  const alignedPairs = (slope: number) => {
+    let count = 0;
+    for (const a of boxes) {
+      for (const b of boxes) {
+        const dx = b.x - a.x;
+        if (dx > a.h && Math.abs(b.y - a.y - slope * dx) <= Math.min(a.h, b.h) * 0.25) count++;
+      }
+    }
+    return count;
+  };
+  let best = 0;
+  let bestCount = alignedPairs(0);
+  for (let step = 1; step <= 30; step++) {
+    for (const slope of [step * 0.005, -step * 0.005]) {
+      const count = alignedPairs(slope);
+      if (count > bestCount) {
+        best = slope;
+        bestCount = count;
+      }
+    }
+  }
+  if (best === 0) return lines;
+  return lines.map((line) => {
+    const shift = (best * (line.left + line.right)) / 2;
+    return { ...line, top: line.top - shift, bottom: line.bottom - shift };
+  });
+}
+
 // ---------- Date ----------
 
 function findDate(lines: OcrLine[], today: string): string | undefined {
   const latest = new Date(`${today}T00:00:00`);
   latest.setDate(latest.getDate() + 1);
   for (const { text } of lines) {
-    const normalized = normalizeForSearch(text);
+    // OCR reads a printed 0 as the letter O ("O1/11/2026").
+    const normalized = normalizeForSearch(text).replace(/[\dOo]{1,4}(?:[/.-][\dOo]{1,4}){2}/g, (date) =>
+      date.replace(/[Oo]/g, '0')
+    );
     const found =
       matchDayMonthYear(normalized.match(/(?<!\d)(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})(?!\d)/)) ??
       matchIsoDate(normalized.match(/(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)/)) ??
