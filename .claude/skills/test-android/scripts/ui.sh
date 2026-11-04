@@ -11,5 +11,9 @@ case $1 in
     xy=$($A shell "uiautomator dump /sdcard/ui.xml >/dev/null; cat /sdcard/ui.xml" | python3 "$DIR/find.py" "$2")
     [ -z "$xy" ] && { echo "not found: $2" >&2; exit 1; }
     $A shell input tap $xy && echo "tapped $xy" ;;
-  *) echo "usage: ui.sh shot FILE | dump | tap X Y | tapText TEXT | back" >&2; exit 2 ;;
+  tapPhoto) # the Nth photo (from 1) in the system photo picker; its layout changes, so never use fixed coordinates
+    xy=$($A shell "uiautomator dump /sdcard/ui.xml >/dev/null; cat /sdcard/ui.xml" | python3 "$DIR/find.py" --photo "$2")
+    [ -z "$xy" ] && { echo "no photo $2" >&2; exit 1; }
+    $A shell input tap $xy && echo "tapped $xy" ;;
+  *) echo "usage: ui.sh shot FILE | dump | tap X Y | tapText TEXT | tapPhoto N | back" >&2; exit 2 ;;
 esac

@@ -17,6 +17,8 @@ Scripts: `.claude/skills/release/scripts/` (run from the repo root).
    `.claude/skills/release/scripts/web-smoke.sh https://chi-tieu.levantung-work.workers.dev <scratchpad>/pw`.
    Every line must be ok. Changes that only touch native code can skip this step.
 5. **Android build** (run in the background, ~10–20 min): `.claude/skills/release/scripts/eas-build.sh` → `FINISHED <version> <url>`.
+   Before telling the user it is building, read its output file for `started <id>` (a background command can fail at once).
+   If the change adds a native module or permission, a repacked APK can't test it: build first, then step 6.
    Skip when nothing in the app changed (e.g. only docs or skills).
 6. **Emulator**: start it in the background if `adb devices` shows none (command in the
    test-android skill), wait with `.claude/skills/test-android/scripts/emulator.sh`, download the APK

@@ -21,6 +21,13 @@ export function receiptUri(name: string): string {
 
 export function pruneReceipts(_keep: string[]): void {}
 
+// A browser reloading the page has no way to get a lost photo back.
+export function markCameraOpen(): void {}
+export function clearCameraMark(): void {}
+export function takeInterruptedPhoto(): string | null {
+  return null;
+}
+
 export async function readReceiptBase64(value: string): Promise<string | null> {
   return value.startsWith('data:') ? value.slice(value.indexOf(',') + 1) : null;
 }

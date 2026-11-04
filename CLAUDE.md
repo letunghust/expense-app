@@ -35,6 +35,8 @@ node:sqlite adapter in `src/db/__testutils__`).
   deployed as is); tests use made-up names.
 - A shop receipt with several products is saved as one transaction per item (`receipt-items-editor.tsx`).
   Web keeps the image itself in the `receipt` column, so only the first item holds it (`RECEIPT_CAN_BE_SHARED`).
+- The camera can kill the app on real phones and `getPendingResultAsync` has nothing then: `takeInterruptedPhoto`
+  (`receipt-files.ts`) recovers the photo. Test with `am kill`, see the test-android skill.
 - Commit as `-c user.name="tung" -c user.email="tunglehoctot@gmail.com"`; push to `origin master`.
 
 ## Shipping

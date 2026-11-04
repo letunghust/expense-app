@@ -6,6 +6,8 @@ APK=$1; IMAGES=${2:-$HOME/Pictures/anh-chuyen-khoan}
 A=${ANDROID_HOME:-$HOME/Android/Sdk}/platform-tools/adb
 UI=$(git rev-parse --show-toplevel)/.claude/skills/test-android/scripts/ui.sh
 $A devices | grep -q emulator || { echo "no emulator running"; exit 2; }
+# Taps are ignored while the screen is off.
+$A shell svc power stayon true; $A shell input keyevent KEYCODE_WAKEUP; $A shell wm dismiss-keyguard
 fail=0
 
 $A install -r "$APK" >/dev/null 2>&1 || { $A uninstall com.tung.chitieu >/dev/null; $A install "$APK" >/dev/null 2>&1; } \
@@ -22,14 +24,13 @@ scan_label=$($UI dump | grep -oE 'content-desc="[^"]+"' | sed -n 's/content-desc
 home() { for _ in 1 2 3; do $UI dump | grep -q "content-desc=\"$scan_label\"" && return; $UI back; sleep 2; done; }
 
 count=$(ls "$IMAGES" | wc -l); [ "$count" -gt 6 ] && count=6
-positions=("180 1584" "540 1584" "900 1584" "180 1944" "540 1944" "900 1944")
 for i in $(seq 0 $((count - 1))); do
   result=""
   for attempt in 1 2; do # a tap before the photo picker is ready is lost: retry once
     home
     $UI tapText "$scan_label" >/dev/null; sleep 2
     $UI tapText "$($UI dump | grep -oE 'text="(Chọn từ thư viện ảnh|Choose from library|앨범에서 선택|从相册选择|ライブラリから選択)"' | head -1 | sed 's/text="\(.*\)"/\1/')" >/dev/null; sleep 9
-    $UI tap ${positions[$i]}; sleep 10
+    $UI tapPhoto $((i + 1)) >/dev/null; sleep 10
     result=$($UI dump | grep -oE 'text="[^"]+"' | sed 's/text="\(.*\)"/\1/' | grep -E '^[0-9][0-9.,]*[0-9]$|20[0-9][0-9]|^(Hôm nay|Hôm qua|Today|Yesterday)$|·|^(Chuyển khoản cho|Transfer to) ' | head -3 | paste -sd'|')
     [ -n "$result" ] && break
   done

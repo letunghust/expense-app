@@ -21,6 +21,40 @@ export function receiptUri(name: string): string {
   return new File(receiptsDir(), name).uri;
 }
 
+const cameraMark = () => new File(Paths.document, 'camera-open');
+const MAX_INTERRUPTED_PHOTO_AGE = 60 * 60 * 1000;
+
+/**
+ * Android can kill the app while the camera is open, and the image picker then
+ * has no result to give back (it only saves its state when the screen is closed
+ * properly). So a mark is kept while the camera is open: if it is still there on
+ * the next start, the photo the camera wrote to the picker's folder is recovered.
+ */
+export function markCameraOpen(): void {
+  cameraMark().create({ overwrite: true });
+}
+
+export function clearCameraMark(): void {
+  const mark = cameraMark();
+  if (mark.exists) mark.delete();
+}
+
+/** The photo taken while the app was killed, once; null when there is none. */
+export function takeInterruptedPhoto(): string | null {
+  const mark = cameraMark();
+  if (!mark.exists) return null;
+  const openedAt = mark.modificationTime ?? 0;
+  mark.delete();
+  // The picker creates an empty file up front; the camera fills it only when the photo is confirmed.
+  const pickerFolder = new Directory(Paths.cache, 'ImagePicker');
+  if (Date.now() - openedAt > MAX_INTERRUPTED_PHOTO_AGE || !pickerFolder.exists) return null;
+  const photos = pickerFolder
+    .list()
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0 && (entry.modificationTime ?? 0) >= openedAt)
+    .sort((a, b) => (b.modificationTime ?? 0) - (a.modificationTime ?? 0));
+  return photos[0]?.uri ?? null;
+}
+
 /** Deletes stored images that no transaction refers to any more. */
 export function pruneReceipts(keep: string[]): void {
   const dir = receiptsDir();

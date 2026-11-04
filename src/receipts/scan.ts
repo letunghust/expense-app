@@ -1,7 +1,7 @@
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { Platform } from 'react-native';
+import { Image, Platform } from 'react-native';
 
 import { listReceipts } from '@/db/repo';
 import { strings } from '@/i18n';
@@ -12,7 +12,14 @@ import { parseTransferReceipt, type ReceiptData } from '@/lib/receipt-parser';
 import { withAutoLockPaused } from '@/lock/app-lock-context';
 
 import { OCR_SUPPORTED, readTextLines } from './ocr';
-import { pruneReceipts, receiptUri, saveReceipt } from './receipt-files';
+import {
+  clearCameraMark,
+  markCameraOpen,
+  pruneReceipts,
+  receiptUri,
+  saveReceipt,
+  takeInterruptedPhoto,
+} from './receipt-files';
 
 export type ScanSource = 'camera' | 'library';
 
@@ -42,7 +49,8 @@ const MAX_IMAGE_SIDE = 2400;
 export async function scanTransferReceipt(source: ScanSource): Promise<ScanResult | null> {
   const picked = await withAutoLockPaused(() => openPicker(source));
   if (!picked || picked.canceled) return null;
-  return readPickedImage(picked.assets[0]);
+  const { uri, width, height } = picked.assets[0];
+  return readImage(uri, width, height);
 }
 
 function openPicker(source: ScanSource): Promise<ImagePicker.ImagePickerResult | null> {
@@ -59,26 +67,37 @@ async function openCamera(): Promise<ImagePicker.ImagePickerResult | null> {
       return null;
     }
   }
-  return ImagePicker.launchCameraAsync({ ...PICKER_OPTIONS, cameraType: ImagePicker.CameraType.back });
+  markCameraOpen();
+  try {
+    return await ImagePicker.launchCameraAsync({ ...PICKER_OPTIONS, cameraType: ImagePicker.CameraType.back });
+  } finally {
+    clearCameraMark();
+  }
 }
 
 let checkedForInterruptedScan = false;
 
 /**
- * Android can kill the app while the camera is open (it needs the memory), so
- * the photo comes back to a fresh start of the app instead of the waiting scan.
+ * Android can kill the app while the camera or photo picker is open, so the
+ * image comes back to a fresh start of the app instead of the waiting scan.
  * Resolves to that scan once per app start, or null when there is none.
  */
 export async function recoverInterruptedScan(): Promise<ScanResult | null> {
   if (checkedForInterruptedScan) return null;
   checkedForInterruptedScan = true;
   const pending = await ImagePicker.getPendingResultAsync();
-  if (!pending || !('canceled' in pending) || pending.canceled) return null;
-  return readPickedImage(pending.assets[0]);
+  const photo = takeInterruptedPhoto();
+  if (pending && 'canceled' in pending && !pending.canceled) {
+    const { uri, width, height } = pending.assets[0];
+    return readImage(uri, width, height);
+  }
+  if (!photo) return null;
+  const { width, height } = await Image.getSize(photo);
+  return readImage(photo, width, height);
 }
 
-async function readPickedImage(asset: ImagePicker.ImagePickerAsset): Promise<ScanResult> {
-  const receipt = await saveReceipt(await shrunkenImage(asset));
+async function readImage(uri: string, width: number, height: number): Promise<ScanResult> {
+  const receipt = await saveReceipt(await shrunkenImage(uri, width, height));
   let data: ReceiptData = {};
   let ocrText = '';
   let ocrFailed = false;
@@ -101,7 +120,7 @@ async function readPickedImage(asset: ImagePicker.ImagePickerAsset): Promise<Sca
   return { ...data, receipt, ocrAvailable: OCR_SUPPORTED, ocrFailed, ocrText };
 }
 
-async function shrunkenImage({ uri, width, height }: ImagePicker.ImagePickerAsset): Promise<string> {
+async function shrunkenImage(uri: string, width: number, height: number): Promise<string> {
   const size = shrinkToFit(width, height, MAX_IMAGE_SIDE);
   if (!size) return uri;
   try {

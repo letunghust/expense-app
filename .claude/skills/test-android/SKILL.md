@@ -60,3 +60,12 @@ The field and the save button must sit above the keyboard.
   (the app shows it under "Xem chữ app đọc được"), or the user can only report "it failed".
 - When repacking an APK, swap only `assets/index.android.bundle`. Deleting `META-INF/*` removed
   ServiceLoader files and broke the image picker with `ExceptionInInitializerError`.
+
+## Camera (scan → "Chụp ảnh")
+
+Start the emulator with `-camera-back emulated`; photos have no text, so this tests the flow, not OCR accuracy (for that,
+pass a large photo through the library). `ui.sh tapText "While using the app"`, `"Shutter"`, then `"Done"` or `"Cancel"`.
+
+App killed while the camera is open, the case that matters on real phones: `adb shell am kill com.tung.chitieu` before
+pressing the shutter, and check the pid changed. "Don't keep activities" does NOT test this: the JS process survives it.
+After `Done` the form must open with the photo; after `Cancel`, or on the next start, the main screen.
