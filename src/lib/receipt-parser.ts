@@ -13,6 +13,15 @@ import { normalizeForSearch } from './search';
 /** One line of recognised text and its bounding box in image pixels. */
 export type OcrLine = { text: string; left: number; top: number; right: number; bottom: number };
 
+/** One product on a shop receipt. */
+export type ReceiptItem = {
+  name: string;
+  /** Price the customer pays for it (after its discount); missing when OCR couldn't read it. */
+  amount?: number;
+  /** Name of the default expense category it most likely belongs to. */
+  categoryHint?: string;
+};
+
 export type ReceiptData = {
   amount?: number;
   date?: string; // YYYY-MM-DD
@@ -20,6 +29,8 @@ export type ReceiptData = {
   content?: string;
   /** Shop that printed the receipt, e.g. "WinMart". */
   store?: string;
+  /** Products on a shop receipt, top to bottom. */
+  items?: ReceiptItem[];
   /** Name of the default expense category the message suggests, e.g. "Ăn uống". */
   categoryHint?: string;
 };
@@ -306,7 +317,28 @@ const STORES: [name: string, ...keys: string[]][] = [
   ['Điện Máy Xanh', 'dienmayxanh'],
   ['Uniqlo', 'uniqlo'],
 ];
-const MAX_ITEMS = 5;
+/** How many item names go into the note when a receipt is saved as one transaction. */
+const MAX_ITEMS_IN_NOTE = 5;
+/** Discount rows some shops print between the items. */
+const NOT_ITEM = /^(giam gia|khuyen mai|chiet khau|uu dai|khau tru|km|ck)( |$)/;
+/**
+ * What supermarket items are, compared as whole words without diacritics. Sold
+ * next to food but not food comes first ("sữa rửa mặt"). Words that are
+ * ambiguous without their diacritics ("cá" and "ca", "bò" and "bộ") are left out.
+ */
+const NOT_FOOD_WORDS = [
+  'sua rua mat', 'sua tam', 'sua duong', 'dau goi', 'dau xa', 'kem danh rang', 'ban chai', 'nuoc rua', 'nuoc giat',
+  'nuoc lau', 'nuoc xa', 'bot giat', 'giay ve sinh', 'khan giay', 'bang ve sinh', 'dao cao', 'xa phong', 'sensodyne',
+  'colgate',
+];
+const FOOD_WORDS = [
+  'sua', 'tiet trung', 'vnm', 'vinamilk', 'yaourt', 'yogurt', 'pho mai', 'banh', 'keo', 'socola', 'chocolate', 'snack',
+  'ngu coc', 'thit', 'phi le', 'uc ga', 'dui ga', 'canh ga', 'xuc xich', 'lap xuong', 'pate', 'tom', 'muc', 'hai san',
+  'trung ga', 'trung vit', 'rau', 'trai cay', 'gao', 'mi tom', 'mi goi', 'mi an lien', 'nuoc mam', 'nuoc tuong',
+  'tuong ot', 'dau an', 'hat nem', 'bot ngot', 'gia vi', 'nuoc ngot', 'nuoc suoi', 'nuoc khoang', 'tra', 'ca phe',
+  'cafe', 'coffee', 'bia', 'ruou', 'coca', 'pepsi',
+];
+const FOOD_CATEGORY = 'Ăn uống';
 
 function isShopReceipt(lines: OcrLine[]): boolean {
   return lines.some((line) => {
@@ -318,14 +350,23 @@ function isShopReceipt(lines: OcrLine[]): boolean {
 function parseShopReceipt(lines: OcrLine[], today: string): ReceiptData {
   const store = findStore(lines);
   const items = findItems(lines);
-  const content = items.length > 0 ? items.join(', ') : undefined;
+  const content = items.length > 0 ? items.slice(0, MAX_ITEMS_IN_NOTE).map((item) => item.name).join(', ') : undefined;
+  const storeCategory = guessCategory(store ?? '');
   return {
     amount: findTotal(lines) ?? findAmount(lines),
     date: findDate(lines, today),
     store,
     content,
-    categoryHint: guessCategory(store ?? '') ?? guessCategory(content ?? ''),
+    items: items.map((item) => ({ ...item, categoryHint: guessItemCategory(item.name) ?? storeCategory })),
+    categoryHint: storeCategory ?? guessCategory(content ?? ''),
   };
+}
+
+function guessItemCategory(name: string): string | undefined {
+  const words = ` ${normalizeWords(name)} `;
+  const has = (word: string) => words.includes(` ${word} `);
+  if (NOT_FOOD_WORDS.some(has)) return undefined;
+  return FOOD_WORDS.some(has) ? FOOD_CATEGORY : guessCategory(name);
 }
 
 /** The receipt total: the right-most amount on the row of the best total label. */
@@ -346,8 +387,8 @@ function findTotal(lines: OcrLine[]): number | undefined {
       const under = below(line, lines, 1);
       if (under) cells.push({ left: under.left, text: under.text });
       for (const cell of cells) {
-        const amounts = amountsIn(cell.text).filter((a) => !a.negative);
-        if (amounts.length > 0) return amounts[amounts.length - 1].value;
+        const amount = priceIn(cell.text);
+        if (amount != null) return amount;
       }
     }
   }
@@ -363,19 +404,53 @@ function findStore(lines: OcrLine[]): string | undefined {
   return undefined;
 }
 
-/** Item names: lines with words between the column headings and the total. */
-function findItems(lines: OcrLine[]): string[] {
+/** The last positive amount in a table cell, where OCR may read the separator as a space ("36 200"). */
+function priceIn(text: string): number | undefined {
+  const amounts = amountsIn(text.replace(/^(\d{1,3}) (\d{3})$/, '$1,$2')).filter((a) => !a.negative);
+  return amounts[amounts.length - 1]?.value;
+}
+
+/** The products between the column headings and the total: lines with words, each with its price. */
+function findItems(lines: OcrLine[]): { name: string; amount?: number }[] {
   const heading = lines.find(isItemHeading);
   if (!heading) return [];
   const headingRow = lines.filter((o) => isItemHeading(o) && Math.abs(centerY(o) - centerY(heading)) <= height(heading));
   const start = Math.max(...headingRow.map((o) => o.bottom));
   const total = lines.find((o) => o.top >= start && matchLabel(o.text, TOTAL_LABELS) != null);
   const end = total ? centerY(total) : Infinity;
-  return lines
-    .filter((o) => centerY(o) > start && centerY(o) < end && !isItemHeading(o))
-    .map((o) => cleanItem(o.text))
-    .filter(isItemName)
-    .slice(0, MAX_ITEMS);
+  const body = lines.filter((o) => centerY(o) > start && centerY(o) < end && !isItemHeading(o));
+  const names = body.filter((o) => isItemName(cleanItem(o.text)) && !NOT_ITEM.test(normalizeWords(o.text)));
+  const priceColumn = Math.max(...body.filter((o) => priceIn(o.text) != null).map((o) => o.right));
+  const items = names.map((line, i) => ({
+    name: cleanItem(line.text),
+    amount: itemPrice(line, names[i + 1], body, priceColumn),
+  }));
+  if (total) return items;
+  // No total to stop at: the wording under the items would read as more items.
+  let last = items.length;
+  while (last > 0 && items[last - 1].amount == null) last--;
+  return items.slice(0, last);
+}
+
+/**
+ * An item's price is in the right-most column, on its own row or, when a
+ * receipt prints the name above "2 x 10.000  20.000", on the rows before the
+ * next item. The unit price in the middle of those rows is not the price.
+ */
+function itemPrice(line: OcrLine, next: OcrLine | undefined, body: OcrLine[], priceColumn: number): number | undefined {
+  const h = height(line);
+  const sameRow = (o: OcrLine) => Math.abs(centerY(o) - centerY(line)) <= h * 0.6;
+  const beforeNext = (o: OcrLine) => !next || centerY(o) < centerY(next) - height(next) * 0.6;
+  const inColumn = body.filter((o) => o.right >= priceColumn - h * 2).sort((a, b) => b.right - a.right);
+  const cells = [
+    ...inColumn.filter((o) => sameRow(o) && (o === line || o.left >= line.right - h)),
+    ...inColumn.filter((o) => centerY(o) > centerY(line) && !sameRow(o) && beforeNext(o)),
+  ];
+  for (const cell of cells) {
+    const amount = priceIn(cell.text);
+    if (amount != null) return amount;
+  }
+  return undefined;
 }
 
 function isItemName(text: string): boolean {

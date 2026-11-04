@@ -2,6 +2,9 @@
  * Web preview: there is no app file storage, so the image itself is kept in
  * the database as a data: URI (the picker's blob: URLs die with the page).
  */
+/** The value is the whole image: repeating it on every item of a split receipt would multiply the database. */
+export const RECEIPT_CAN_BE_SHARED = false;
+
 export async function saveReceipt(sourceUri: string): Promise<string> {
   const blob = await (await fetch(sourceUri)).blob();
   return new Promise((resolve, reject) => {

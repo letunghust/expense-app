@@ -30,8 +30,11 @@ node:sqlite adapter in `src/db/__testutils__`).
   Built-in category/wallet names are stored in Vietnamese and shown via `categoryLabel`/`walletLabel`.
 - Import icons as `@expo/vector-icons/Ionicons` (the barrel import adds ~4 MB of fonts to the web build).
 - Forms scroll with `KeyboardAwareScrollView` (not KeyboardAvoidingView).
-- Real transfer screenshots in `~/Pictures/anh-chuyen-khoan/` have real names and account numbers:
-  never copy them into the repo; tests use made-up names.
+- Real transfer screenshots in `~/Pictures/anh-chuyen-khoan/` have real names and account numbers,
+  real shop receipts are in `~/Pictures/hoa-don-sieu-thi/`: never copy them into the repo (`public/` is
+  deployed as is); tests use made-up names.
+- A shop receipt with several products is saved as one transaction per item (`receipt-items-editor.tsx`).
+  Web keeps the image itself in the `receipt` column, so only the first item holds it (`RECEIPT_CAN_BE_SHARED`).
 - Commit as `-c user.name="tung" -c user.email="tunglehoctot@gmail.com"`; push to `origin master`.
 
 ## Shipping

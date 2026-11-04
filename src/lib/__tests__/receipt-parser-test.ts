@@ -222,6 +222,13 @@ describe('shop receipts', () => {
       content:
         "B'FAST Sữa hạt ngũ cốc ca, VNM Sữa tươi tiệt trùng soc, LOTTE Bánh Bouchee CHO, OREO Bánh quy kem socola, " +
         'BẢO NGỌC Bánh mỳ paket',
+      items: [
+        { name: "B'FAST Sữa hạt ngũ cốc ca", amount: 57_800, categoryHint: 'Ăn uống' },
+        { name: 'VNM Sữa tươi tiệt trùng soc', amount: 36_300, categoryHint: 'Ăn uống' },
+        { name: 'LOTTE Bánh Bouchee CHO', amount: 21_900, categoryHint: 'Ăn uống' },
+        { name: 'OREO Bánh quy kem socola', amount: 20_000, categoryHint: 'Ăn uống' },
+        { name: 'BẢO NGỌC Bánh mỳ paket', amount: 14_900, categoryHint: 'Ăn uống' },
+      ],
       categoryHint: 'Mua sắm',
     });
   });
@@ -232,7 +239,7 @@ describe('shop receipts', () => {
       ...row(300, 36, [155, 'PHIEU TÍNH TIÊN']),
       ...row(370, 30, [155, '02/11/2026 21:28|MSCH:9Z99|PTT:9Z9901261100111']),
       ...row(460, 30, [155, 'Mặt hàng'], [735, 'KM'], [915, 'T.Tiền']),
-      ...row(525, 30, [155, 'MEAT DELI Phi lê ức gà'], [695, '-20,363'], [920, '36,200']),
+      ...row(525, 30, [155, 'MEAT DELI Phi lê ức gà'], [695, '-20,363'], [920, '36 200']),
       ...row(570, 30, [155, '0.501 x 112,900']),
       ...row(640, 34, [155, 'TỔNG TIỀN HÀNG'], [665, '-20,363'], [920, '36,200']),
       ...row(680, 30, [150, 'Khấu trừ, ưu đãi khác'], [920, '36,200']),
@@ -244,6 +251,7 @@ describe('shop receipts', () => {
       date: '2026-11-02',
       store: 'WinMart',
       content: 'MEAT DELI Phi lê ức gà',
+      items: [{ name: 'MEAT DELI Phi lê ức gà', amount: 36_200, categoryHint: 'Ăn uống' }],
       categoryHint: 'Mua sắm',
     });
   });
@@ -265,6 +273,68 @@ describe('shop receipts', () => {
     expect(result.store).toBe('Co.opmart');
     expect(result.content).toBe('Cà phê sữa đá, Bánh mì thịt');
     expect(result.categoryHint).toBe('Mua sắm');
+    expect(result.items?.map((item) => [item.name, item.amount])).toEqual([
+      ['Cà phê sữa đá', 50_000],
+      ['Bánh mì thịt', 35_000],
+    ]);
+  });
+
+  test('price on the row under the name, in the right-most column', () => {
+    const lines = [
+      ...row(50, 30, [100, 'Kingfoodmart']),
+      ...row(90, 24, [100, 'Tên hàng'], [600, 'Thành tiền']),
+      ...row(125, 24, [100, 'Nước mắm Nam Ngư 500ml']),
+      ...row(155, 24, [100, '2 x'], [300, '40,000'], [600, '80,000']),
+      ...row(190, 24, [100, 'Trà xanh 330ml']),
+      ...row(220, 24, [100, '1 x'], [300, '12,000'], [600, '12,000']),
+      ...row(260, 26, [100, 'Tổng cộng'], [600, '92,000']),
+    ];
+    expect(parseTransferReceipt(lines, TODAY).items).toEqual([
+      { name: 'Nước mắm Nam Ngư 500ml', amount: 80_000, categoryHint: 'Ăn uống' },
+      { name: 'Trà xanh 330ml', amount: 12_000, categoryHint: 'Ăn uống' },
+    ]);
+  });
+
+  test('a price OCR missed stays empty: the unit price is not taken for it', () => {
+    const lines = [
+      ...row(90, 24, [100, 'Mặt hàng'], [600, 'T.Tiền']),
+      ...row(125, 24, [100, 'OREO Bánh quy kem socola']),
+      ...row(155, 24, [100, '2 x'], [300, '10,000']),
+      ...row(190, 24, [100, 'Bánh mỳ paket'], [600, '14,900']),
+      ...row(230, 26, [100, 'Tổng tiền hàng'], [600, '34,900']),
+    ];
+    expect(parseTransferReceipt(lines, TODAY).items?.map((item) => [item.name, item.amount])).toEqual([
+      ['OREO Bánh quy kem socola', undefined],
+      ['Bánh mỳ paket', 14_900],
+    ]);
+  });
+
+  test('things sold next to food take the category of the shop; discount rows are not items', () => {
+    const lines = [
+      ...row(50, 30, [100, 'WinMart']),
+      ...row(90, 24, [100, 'Mặt hàng'], [600, 'T.Tiền']),
+      ...row(125, 24, [100, 'Sữa rửa mặt Hada'], [600, '95,000']),
+      ...row(155, 24, [100, 'Giảm giá thành viên'], [600, '-5,000']),
+      ...row(190, 24, [100, 'Sữa chua Vinamilk'], [600, '30,000']),
+      ...row(225, 24, [100, 'Hộp nhựa 500ml'], [600, '15,000']),
+      ...row(265, 26, [100, 'Tổng tiền hàng'], [600, '135,000']),
+    ];
+    expect(parseTransferReceipt(lines, TODAY).items).toEqual([
+      { name: 'Sữa rửa mặt Hada', amount: 95_000, categoryHint: 'Mua sắm' },
+      { name: 'Sữa chua Vinamilk', amount: 30_000, categoryHint: 'Ăn uống' },
+      { name: 'Hộp nhựa 500ml', amount: 15_000, categoryHint: 'Mua sắm' },
+    ]);
+  });
+
+  test('no total row: the wording under the items is not read as items', () => {
+    const lines = [
+      ...row(90, 24, [100, 'Mặt hàng'], [600, 'T.Tiền']),
+      ...row(125, 24, [100, 'Bánh mỳ paket'], [600, '14,900']),
+      ...row(160, 24, [100, 'Sữa tươi'], [600, '36,300']),
+      ...row(200, 24, [100, 'Cảm ơn quý khách đã mua hàng']),
+      ...row(235, 24, [100, 'Hẹn gặp lại quý khách']),
+    ];
+    expect(parseTransferReceipt(lines, TODAY).items?.map((item) => item.name)).toEqual(['Bánh mỳ paket', 'Sữa tươi']);
   });
 
   test('unknown shop: items still give the category', () => {

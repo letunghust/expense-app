@@ -195,6 +195,13 @@ export async function createTransaction(db: SQLiteDatabase, input: TransactionIn
   return result.lastInsertRowId;
 }
 
+/** Saves the items of a split receipt: all of them or, if one fails, none. */
+export async function createTransactions(db: SQLiteDatabase, inputs: TransactionInput[]): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    for (const input of inputs) await createTransaction(db, input);
+  });
+}
+
 export async function updateTransaction(db: SQLiteDatabase, id: number, input: TransactionInput): Promise<void> {
   await db.runAsync(
     `UPDATE transactions SET type = ?, amount = ?, category_id = ?, wallet_id = ?, date = ?, note = ?, receipt = ?

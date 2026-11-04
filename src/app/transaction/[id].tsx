@@ -14,13 +14,14 @@ import { Spacing } from '@/constants/theme';
 import { useDbQuery, useNotifyDataChanged } from '@/db/data-context';
 import {
   createTransaction,
+  createTransactions,
   deleteTransaction,
   getTransaction,
   listCategories,
   listWallets,
   updateTransaction,
 } from '@/db/repo';
-import type { TransactionType } from '@/db/types';
+import type { TransactionInput, TransactionType } from '@/db/types';
 import { useTheme } from '@/hooks/use-theme';
 import { useStrings } from '@/i18n';
 import { categoryLabel, walletLabel } from '@/i18n/defaults';
@@ -29,9 +30,18 @@ import { confirmDestructive, showMessage } from '@/lib/dialog';
 import { formatAmountInput, groupDigits, parseAmount } from '@/lib/money';
 import { receiptNote } from '@/lib/receipt-parser';
 import { ReceiptAttachment, type ScanStatus, scanStatusOf } from '@/receipts/receipt-attachment';
-import { receiptUri } from '@/receipts/receipt-files';
+import { RECEIPT_CAN_BE_SHARED, receiptUri } from '@/receipts/receipt-files';
+import { type EditableItem, itemCategoryId, ReceiptItemsEditor, toEditableItems } from '@/receipts/receipt-items-editor';
 import { ReceiptViewer } from '@/receipts/receipt-viewer';
-import { cleanUpReceipts, getStashedScan, scanTransferReceipt } from '@/receipts/scan';
+import { cleanUpReceipts, getStashedScan, type ScanResult, scanTransferReceipt } from '@/receipts/scan';
+
+/** A shop receipt with several products: checked item by item, each saved as its own transaction. */
+type SplitReceipt = { store?: string; total?: number; items: EditableItem[] };
+
+function splitOf(scan: ScanResult): SplitReceipt | null {
+  if (!scan.items || scan.items.length < 2) return null;
+  return { store: scan.store, total: scan.amount, items: toEditableItems(scan.items) };
+}
 
 export default function TransactionFormScreen() {
   const t = useStrings();
@@ -59,6 +69,7 @@ export default function TransactionFormScreen() {
   const [scanning, setScanning] = useState(false);
   const [viewingReceipt, setViewingReceipt] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [split, setSplit] = useState(() => (isNew && initialScan ? splitOf(initialScan) : null));
 
   const categories = useDbQuery((db) => listCategories(db), []);
   const wallets = useDbQuery((db) => listWallets(db), []);
@@ -88,6 +99,7 @@ export default function TransactionFormScreen() {
   const selectedWalletId = walletId ?? bankWalletId ?? wallets?.[0]?.id;
 
   const visibleCategories = categories?.filter((c) => c.type === type) ?? [];
+  const expenseCategories = categories?.filter((c) => c.type === 'expense') ?? [];
 
   const changeType = (next: TransactionType) => {
     setType(next);
@@ -108,6 +120,7 @@ export default function TransactionFormScreen() {
       const scannedNote = receiptNote(result, t.receipt.transferTo);
       if (scannedNote) setNote(scannedNote);
       if (result.categoryHint) setCategoryHint(result.categoryHint);
+      setSplit(isNew ? splitOf(result) : null);
     } catch (error) {
       console.error(error);
       showMessage(t.common.error, t.transaction.imageOpenFailed);
@@ -120,6 +133,20 @@ export default function TransactionFormScreen() {
     setReceipt(null);
     setScanStatus(undefined);
     setOcrText(undefined);
+  };
+
+  const persist = async (write: () => Promise<unknown>) => {
+    setSaving(true);
+    try {
+      await write();
+      await cleanUpReceipts(db);
+      notifyChanged();
+      router.back();
+    } catch (error) {
+      console.error(error);
+      showMessage(t.common.error, t.transaction.saveFailed);
+      setSaving(false);
+    }
   };
 
   const save = async () => {
@@ -136,27 +163,48 @@ export default function TransactionFormScreen() {
       showMessage(t.transaction.missingWallet, t.transaction.missingWalletMessage);
       return;
     }
-    setSaving(true);
-    try {
-      const input = {
-        type,
+    const input = {
+      type,
+      amount,
+      categoryId: selectedCategoryId,
+      walletId: selectedWalletId,
+      date,
+      note: note.trim(),
+      receipt,
+    };
+    await persist(() => (isNew ? createTransaction(db, input) : updateTransaction(db, Number(id), input)));
+  };
+
+  const saveSplit = async ({ items, store }: SplitReceipt) => {
+    if (selectedWalletId == null) {
+      showMessage(t.transaction.missingWallet, t.transaction.missingWalletMessage);
+      return;
+    }
+    const inputs: TransactionInput[] = [];
+    for (const [index, item] of items.entries()) {
+      const name = item.name.trim();
+      const amount = parseAmount(item.amountText);
+      if (amount == null) {
+        showMessage(t.transaction.missingAmount, t.receipt.itemMissingAmount(name || t.receipt.itemName));
+        return;
+      }
+      const itemCategory = itemCategoryId(item, expenseCategories);
+      if (itemCategory == null) {
+        showMessage(t.transaction.missingCategory, t.receipt.itemMissingCategory(name || t.receipt.itemName));
+        return;
+      }
+      inputs.push({
+        type: 'expense',
         amount,
-        categoryId: selectedCategoryId,
+        categoryId: itemCategory,
         walletId: selectedWalletId,
         date,
-        note: note.trim(),
-        receipt,
-      };
-      if (isNew) await createTransaction(db, input);
-      else await updateTransaction(db, Number(id), input);
-      await cleanUpReceipts(db);
-      notifyChanged();
-      router.back();
-    } catch (error) {
-      console.error(error);
-      showMessage(t.common.error, t.transaction.saveFailed);
-      setSaving(false);
+        note: [name, store].filter(Boolean).join(' · ').slice(0, 200),
+        receipt: RECEIPT_CAN_BE_SHARED || index === 0 ? receipt : null,
+      });
     }
+    // Lists show the newest first: saved in reverse, the items read like the receipt.
+    await persist(() => createTransactions(db, inputs.reverse()));
   };
 
   const confirmDelete = () =>
@@ -207,65 +255,77 @@ export default function TransactionFormScreen() {
           onRemove={removeReceipt}
         />
 
-        <View style={[styles.segment, { backgroundColor: theme.backgroundElement }]}>
-          {(['expense', 'income'] as const).map((kind) => (
-            <Pressable
-              key={kind}
-              onPress={() => changeType(kind)}
-              style={[
-                styles.segmentItem,
-                type === kind && { backgroundColor: kind === 'income' ? theme.income : theme.expense },
-              ]}>
-              <ThemedText type="smallBold" style={type === kind ? { color: theme.onTint } : undefined}>
-                {t.common[kind]}
-              </ThemedText>
-            </Pressable>
-          ))}
-        </View>
-
-        <View style={[styles.amountBox, { borderBottomColor: amountColor }]}>
-          <TextInput
-            value={amountText}
-            onChangeText={(text) => setAmountText(formatAmountInput(text))}
-            placeholder="0"
-            placeholderTextColor={theme.textSecondary}
-            keyboardType="number-pad"
-            autoFocus={isNew && !initialScan}
-            style={[styles.amountInput, { color: amountColor }]}
-            accessibilityLabel={t.transaction.amount}
+        {split ? (
+          <ReceiptItemsEditor
+            items={split.items}
+            categories={expenseCategories}
+            scannedTotal={split.total}
+            onChange={(items) => setSplit({ ...split, items })}
+            onMerge={() => setSplit(null)}
           />
-          <ThemedText style={[styles.currency, { color: amountColor }]}>₫</ThemedText>
-        </View>
+        ) : (
+          <>
+            <View style={[styles.segment, { backgroundColor: theme.backgroundElement }]}>
+              {(['expense', 'income'] as const).map((kind) => (
+                <Pressable
+                  key={kind}
+                  onPress={() => changeType(kind)}
+                  style={[
+                    styles.segmentItem,
+                    type === kind && { backgroundColor: kind === 'income' ? theme.income : theme.expense },
+                  ]}>
+                  <ThemedText type="smallBold" style={type === kind ? { color: theme.onTint } : undefined}>
+                    {t.common[kind]}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
 
-        <ThemedText type="smallBold">{t.transaction.category}</ThemedText>
-        <View style={styles.categoryGrid}>
-          {visibleCategories.map((c) => {
-            const selected = c.id === selectedCategoryId;
-            return (
+            <View style={[styles.amountBox, { borderBottomColor: amountColor }]}>
+              <TextInput
+                value={amountText}
+                onChangeText={(text) => setAmountText(formatAmountInput(text))}
+                placeholder="0"
+                placeholderTextColor={theme.textSecondary}
+                keyboardType="number-pad"
+                autoFocus={isNew && !initialScan}
+                style={[styles.amountInput, { color: amountColor }]}
+                accessibilityLabel={t.transaction.amount}
+              />
+              <ThemedText style={[styles.currency, { color: amountColor }]}>₫</ThemedText>
+            </View>
+
+            <ThemedText type="smallBold">{t.transaction.category}</ThemedText>
+            <View style={styles.categoryGrid}>
+              {visibleCategories.map((c) => {
+                const selected = c.id === selectedCategoryId;
+                return (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => setCategoryId(c.id)}
+                    style={[
+                      styles.categoryItem,
+                      { borderColor: selected ? c.color : 'transparent' },
+                      selected && { backgroundColor: `${c.color}1A` },
+                    ]}>
+                    <CategoryIcon icon={c.icon} color={c.color} />
+                    <ThemedText type="small" numberOfLines={1} style={styles.categoryName}>
+                      {categoryLabel(c.name)}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
               <Pressable
-                key={c.id}
-                onPress={() => setCategoryId(c.id)}
-                style={[
-                  styles.categoryItem,
-                  { borderColor: selected ? c.color : 'transparent' },
-                  selected && { backgroundColor: `${c.color}1A` },
-                ]}>
-                <CategoryIcon icon={c.icon} color={c.color} />
-                <ThemedText type="small" numberOfLines={1} style={styles.categoryName}>
-                  {categoryLabel(c.name)}
+                onPress={() => router.push({ pathname: '/category/[id]', params: { id: 'new', type } })}
+                style={[styles.categoryItem, { borderColor: 'transparent' }]}>
+                <CategoryIcon icon="add" color={theme.textSecondary} />
+                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.categoryName}>
+                  {t.transaction.addCategory}
                 </ThemedText>
               </Pressable>
-            );
-          })}
-          <Pressable
-            onPress={() => router.push({ pathname: '/category/[id]', params: { id: 'new', type } })}
-            style={[styles.categoryItem, { borderColor: 'transparent' }]}>
-            <CategoryIcon icon="add" color={theme.textSecondary} />
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.categoryName}>
-              {t.transaction.addCategory}
-            </ThemedText>
-          </Pressable>
-        </View>
+            </View>
+          </>
+        )}
 
         <ThemedText type="smallBold">{t.transaction.wallet}</ThemedText>
         <View style={styles.chips}>
@@ -276,24 +336,26 @@ export default function TransactionFormScreen() {
 
         <DateField value={date} onChange={setDate} />
 
-        <View style={[styles.noteRow, { borderBottomColor: theme.border }]}>
-          <Ionicons name="create-outline" size={22} color={theme.textSecondary} />
-          <TextInput
-            value={note}
-            onChangeText={setNote}
-            placeholder={t.transaction.notePlaceholder}
-            placeholderTextColor={theme.textSecondary}
-            style={[styles.noteInput, { color: theme.text }]}
-            maxLength={200}
-          />
-        </View>
+        {!split && (
+          <View style={[styles.noteRow, { borderBottomColor: theme.border }]}>
+            <Ionicons name="create-outline" size={22} color={theme.textSecondary} />
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              placeholder={t.transaction.notePlaceholder}
+              placeholderTextColor={theme.textSecondary}
+              style={[styles.noteInput, { color: theme.text }]}
+              maxLength={200}
+            />
+          </View>
+        )}
 
         <Pressable
-          onPress={save}
-          disabled={saving}
+          onPress={split ? () => saveSplit(split) : save}
+          disabled={saving || split?.items.length === 0}
           style={({ pressed }) => [styles.saveButton, { backgroundColor: theme.tint }, (pressed || saving) && styles.pressed]}>
           <ThemedText type="smallBold" style={{ color: theme.onTint }}>
-            {isNew ? t.transaction.save : t.transaction.update}
+            {split ? t.receipt.saveItems(split.items.length) : isNew ? t.transaction.save : t.transaction.update}
           </ThemedText>
         </Pressable>
       </KeyboardAwareScrollView>

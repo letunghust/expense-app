@@ -22,7 +22,8 @@ Scripts: `.claude/skills/release/scripts/` (run from the repo root).
    test-android skill), wait with `.claude/skills/test-android/scripts/emulator.sh`, download the APK
    to the scratchpad, then `.claude/skills/release/scripts/android-smoke.sh <apk>`. It installs over the existing app (the
    user's upgrade path), scans every test screenshot, checks the note field stays above the keyboard,
-   and scans logcat. All lines must be ✓.
+   and scans logcat. All lines must be ✓. After a change to receipt reading, also pass
+   `~/Pictures/hoa-don-sieu-thi` (real shop receipts) as IMAGE_DIR: a receipt with several products opens the item list.
    Look at screenshots only when something fails or the change is visual.
 7. **Report** in Vietnamese: the version, the APK link, the web link if deployed, and what was tested.
    Only ever send the newest link that passed step 6.

@@ -2,6 +2,8 @@
 import {
   createCategory,
   createTransaction,
+  createTransactions,
+  deleteTransaction,
   deleteWallet,
   getDailyExpenses,
   getMonthlyExpenses,
@@ -172,5 +174,40 @@ describe('repo', () => {
     await deleteWallet(db, cash);
     expect((await listWallets(db)).map((w) => w.id)).toEqual([bank]);
     expect((await listTransactions(db, OCT)).map((t) => t.amount)).toEqual([2_000]);
+  });
+});
+
+describe('split receipts', () => {
+  test('saves one transaction per item; the image stays until the last one is deleted', async () => {
+    const { db, byName, bank } = await setup();
+    const item = { type: 'expense' as const, walletId: bank, date: '2026-10-05', receipt: 'bill.jpg' };
+    await createTransactions(db, [
+      { ...item, amount: 57_800, categoryId: byName('Ăn uống'), note: 'Sữa hạt · WinMart' },
+      { ...item, amount: 95_000, categoryId: byName('Mua sắm'), note: 'Sữa rửa mặt · WinMart' },
+    ]);
+
+    const rows = await listTransactions(db, OCT);
+    expect(rows.map((row) => [row.amount, row.categoryName, row.note]).sort()).toEqual([
+      [57_800, 'Ăn uống', 'Sữa hạt · WinMart'],
+      [95_000, 'Mua sắm', 'Sữa rửa mặt · WinMart'],
+    ]);
+    expect((await getTotalsByCategory(db, OCT, 'expense')).map((c) => c.total).sort()).toEqual([57_800, 95_000]);
+
+    await deleteTransaction(db, rows[0].id);
+    expect(await listReceipts(db)).toEqual(['bill.jpg']);
+    await deleteTransaction(db, rows[1].id);
+    expect(await listReceipts(db)).toEqual([]);
+  });
+
+  test('saves nothing when one item fails', async () => {
+    const { db, byName, bank } = await setup();
+    const item = { type: 'expense' as const, walletId: bank, date: '2026-10-05', note: '' };
+    await expect(
+      createTransactions(db, [
+        { ...item, amount: 1_000, categoryId: byName('Ăn uống') },
+        { ...item, amount: 2_000, categoryId: 999_999 },
+      ])
+    ).rejects.toThrow();
+    expect(await listTransactions(db, OCT)).toEqual([]);
   });
 });

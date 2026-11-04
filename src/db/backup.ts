@@ -50,9 +50,10 @@ export async function createBackup(db: SQLiteDatabase, receiptIO: ReceiptIO, now
   const receipts: Record<string, string> = {};
   for (const tx of transactions) {
     if (!tx.receipt) continue;
-    const base64 = await receiptIO.read(tx.receipt);
     // Web keeps the image itself in the column; give it a short key instead.
     const key = tx.receipt.startsWith('data:') ? `receipt-${tx.id}.jpg` : tx.receipt;
+    // The items of a split receipt share one image.
+    const base64 = receipts[key] ?? (await receiptIO.read(tx.receipt));
     if (base64) receipts[key] = base64;
     tx.receipt = base64 ? key : null;
   }

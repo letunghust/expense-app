@@ -4,6 +4,9 @@ import { Directory, File, Paths } from 'expo-file-system';
 /** Transfer screenshots live in the app's private documents folder; transactions store only the file name. */
 const receiptsDir = () => new Directory(Paths.document, 'receipts');
 
+/** A stored name is cheap to repeat, so all the transactions of a split receipt can point to its image. */
+export const RECEIPT_CAN_BE_SHARED = true;
+
 /** Copies a picked image into app storage and returns the name to save on the transaction. */
 export async function saveReceipt(sourceUri: string): Promise<string> {
   const dir = receiptsDir();

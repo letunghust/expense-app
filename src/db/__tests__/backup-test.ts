@@ -5,6 +5,7 @@ import { type Backup, BackupError, createBackup, parseBackup, type ReceiptIO, re
 import { CsvImportError, importTransactions, parseTransactionsCsv } from '../csv-import';
 import {
   createTransaction,
+  createTransactions,
   createWallet,
   listAllTransactions,
   listBudgets,
@@ -63,6 +64,25 @@ describe('backup', () => {
     expect(targetReceipts.files).toEqual({ 'a.jpg': 'QUJD' });
     // The archived category still names its old transaction.
     expect((await listAllTransactions(target)).find((t) => t.amount === 90_000)?.categoryName).toBe('Giải trí');
+  });
+
+  test('the items of a split receipt share one image in the backup', async () => {
+    const db = await freshDb();
+    const [wallet] = await listWallets(db);
+    const [category] = await listCategories(db, 'expense');
+    const item = { type: 'expense' as const, categoryId: category.id, walletId: wallet.id, date: '2026-10-05', note: '' };
+    await createTransactions(db, [
+      { ...item, amount: 1_000, receipt: 'bill.jpg' },
+      { ...item, amount: 2_000, receipt: 'bill.jpg' },
+    ]);
+    const io = memoryReceipts({ 'bill.jpg': 'aW1hZ2U=' });
+    const read = jest.spyOn(io, 'read');
+
+    const backup = await createBackup(db, io);
+
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(backup.receipts).toEqual({ 'bill.jpg': 'aW1hZ2U=' });
+    expect(backup.transactions.map((tx) => tx.receipt)).toEqual(['bill.jpg', 'bill.jpg']);
   });
 
   test('images that can no longer be read are dropped from the backup', async () => {

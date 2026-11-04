@@ -29,7 +29,7 @@ for i in $(seq 0 $((count - 1))); do
     home
     $UI tapText "$scan_label" >/dev/null; sleep 9
     $UI tap ${positions[$i]}; sleep 10
-    result=$($UI dump | grep -oE 'text="[^"]+"' | sed 's/text="\(.*\)"/\1/' | grep -E '^[0-9][0-9.,]*[0-9]$|20[0-9][0-9]|·|^(Chuyển khoản cho|Transfer to) ' | head -3 | paste -sd'|')
+    result=$($UI dump | grep -oE 'text="[^"]+"' | sed 's/text="\(.*\)"/\1/' | grep -E '^[0-9][0-9.,]*[0-9]$|20[0-9][0-9]|^(Hôm nay|Hôm qua|Today|Yesterday)$|·|^(Chuyển khoản cho|Transfer to) ' | head -3 | paste -sd'|')
     [ -n "$result" ] && break
   done
   if grep -qE '^[0-9][0-9.,]*[0-9]\|' <<<"$result"; then echo "scan $((i + 1)) ✓ $result"; else echo "scan $((i + 1)) ✗ ${result:-nothing filled}"; fail=1; fi

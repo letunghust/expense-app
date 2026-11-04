@@ -2,7 +2,7 @@
 import re
 import sys
 
-xml, text = sys.stdin.read(), sys.argv[1]
+xml, text = sys.stdin.read(), sys.argv[1].replace("'", '&apos;')
 for node in re.findall(r'<node [^>]*>', xml):
     if f'text="{text}"' in node or f'content-desc="{text}"' in node:
         x1, y1, x2, y2 = map(int, re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node).groups())
