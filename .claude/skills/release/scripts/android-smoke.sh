@@ -27,7 +27,8 @@ for i in $(seq 0 $((count - 1))); do
   result=""
   for attempt in 1 2; do # a tap before the photo picker is ready is lost: retry once
     home
-    $UI tapText "$scan_label" >/dev/null; sleep 9
+    $UI tapText "$scan_label" >/dev/null; sleep 2
+    $UI tapText "$($UI dump | grep -oE 'text="(Chọn từ thư viện ảnh|Choose from library|앨범에서 선택|从相册选择|ライブラリから選択)"' | head -1 | sed 's/text="\(.*\)"/\1/')" >/dev/null; sleep 9
     $UI tap ${positions[$i]}; sleep 10
     result=$($UI dump | grep -oE 'text="[^"]+"' | sed 's/text="\(.*\)"/\1/' | grep -E '^[0-9][0-9.,]*[0-9]$|20[0-9][0-9]|^(Hôm nay|Hôm qua|Today|Yesterday)$|·|^(Chuyển khoản cho|Transfer to) ' | head -3 | paste -sd'|')
     [ -n "$result" ] && break

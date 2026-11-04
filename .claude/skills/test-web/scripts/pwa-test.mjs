@@ -39,6 +39,7 @@ if (image) {
   try {
     const chooser = page.waitForEvent('filechooser');
     await page.getByLabel('Quét ảnh chuyển khoản').click();
+    await page.getByText('Chọn từ thư viện ảnh').click();
     await (await chooser).setFiles(image);
     await page.getByText(/Đã tự điền|Không đọc được|Chưa tìm thấy/).first().waitFor({ timeout: 180000 });
     await page.screenshot({ path: `${out}/${engine}-scan.png` });

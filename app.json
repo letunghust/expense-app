@@ -2,7 +2,7 @@
   "expo": {
     "name": "Chi Tiêu",
     "slug": "expense-app",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "expenseapp",
@@ -62,7 +62,7 @@
         "expo-image-picker",
         {
           "photosPermission": "Cho phép Chi Tiêu mở ảnh chụp màn hình chuyển khoản để tự điền giao dịch.",
-          "cameraPermission": false,
+          "cameraPermission": "Cho phép Chi Tiêu dùng camera để chụp hóa đơn và tự điền giao dịch.",
           "microphonePermission": false
         }
       ],

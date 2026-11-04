@@ -1,27 +1,42 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
 import { useStrings } from '@/i18n';
 import { showMessage } from '@/lib/dialog';
-import { scanTransferReceipt, stashScan } from '@/receipts/scan';
+import { recoverInterruptedScan, scanTransferReceipt, type ScanResult, type ScanSource, stashScan } from '@/receipts/scan';
+import { ScanSourceSheet } from '@/receipts/scan-source-sheet';
+
+function openScannedForm(result: ScanResult) {
+  router.push({ pathname: '/transaction/[id]', params: { id: 'new', scan: stashScan(result) } });
+}
 
 /**
  * Floating buttons: "+" opens the new transaction form, the smaller one above
- * it reads a transfer screenshot first and opens the form filled in.
+ * it reads a photo or screenshot first and opens the form filled in.
  */
 export function AddTransactionButton() {
   const theme = useTheme();
   const t = useStrings();
+  const [choosingSource, setChoosingSource] = useState(false);
   const [scanning, setScanning] = useState(false);
 
-  const scan = async () => {
+  useEffect(() => {
+    recoverInterruptedScan()
+      .then((result) => {
+        if (result) openScannedForm(result);
+      })
+      .catch((error) => console.warn('Could not recover the photo', error));
+  }, []);
+
+  const scan = async (source: ScanSource) => {
+    setChoosingSource(false);
     setScanning(true);
     try {
-      const result = await scanTransferReceipt();
-      if (result) router.push({ pathname: '/transaction/[id]', params: { id: 'new', scan: stashScan(result) } });
+      const result = await scanTransferReceipt(source);
+      if (result) openScannedForm(result);
     } catch (error) {
       console.error(error);
       showMessage(t.common.error, t.transaction.imageOpenFailed);
@@ -34,7 +49,7 @@ export function AddTransactionButton() {
     <View style={styles.container} pointerEvents="box-none">
       <Pressable
         accessibilityLabel={t.fab.scan}
-        onPress={scan}
+        onPress={() => setChoosingSource(true)}
         disabled={scanning}
         style={({ pressed }) => [
           styles.button,
@@ -50,6 +65,7 @@ export function AddTransactionButton() {
         style={({ pressed }) => [styles.button, styles.large, { backgroundColor: theme.tint }, pressed && styles.pressed]}>
         <Ionicons name="add" size={32} color={theme.onTint} />
       </Pressable>
+      <ScanSourceSheet visible={choosingSource} onPick={scan} onClose={() => setChoosingSource(false)} />
     </View>
   );
 }

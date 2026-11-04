@@ -33,7 +33,8 @@ import { ReceiptAttachment, type ScanStatus, scanStatusOf } from '@/receipts/rec
 import { RECEIPT_CAN_BE_SHARED, receiptUri } from '@/receipts/receipt-files';
 import { type EditableItem, itemCategoryId, ReceiptItemsEditor, toEditableItems } from '@/receipts/receipt-items-editor';
 import { ReceiptViewer } from '@/receipts/receipt-viewer';
-import { cleanUpReceipts, getStashedScan, type ScanResult, scanTransferReceipt } from '@/receipts/scan';
+import { cleanUpReceipts, getStashedScan, type ScanResult, type ScanSource, scanTransferReceipt } from '@/receipts/scan';
+import { ScanSourceSheet } from '@/receipts/scan-source-sheet';
 
 /** A shop receipt with several products: checked item by item, each saved as its own transaction. */
 type SplitReceipt = { store?: string; total?: number; items: EditableItem[] };
@@ -66,6 +67,7 @@ export default function TransactionFormScreen() {
   const [fromTransfer, setFromTransfer] = useState(initialScan != null);
   const [scanStatus, setScanStatus] = useState<ScanStatus | undefined>(initialScan && scanStatusOf(initialScan));
   const [ocrText, setOcrText] = useState(initialScan?.ocrText);
+  const [choosingScanSource, setChoosingScanSource] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [viewingReceipt, setViewingReceipt] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -106,10 +108,11 @@ export default function TransactionFormScreen() {
     if (categories?.find((c) => c.id === selectedCategoryId)?.type !== next) setCategoryId(undefined);
   };
 
-  const scanReceipt = async () => {
+  const scanReceipt = async (source: ScanSource) => {
+    setChoosingScanSource(false);
     setScanning(true);
     try {
-      const result = await scanTransferReceipt();
+      const result = await scanTransferReceipt(source);
       if (!result) return;
       setReceipt(result.receipt);
       setScanStatus(scanStatusOf(result));
@@ -250,7 +253,7 @@ export default function TransactionFormScreen() {
           status={scanStatus}
           ocrText={ocrText}
           scanning={scanning}
-          onScan={scanReceipt}
+          onScan={() => setChoosingScanSource(true)}
           onView={() => setViewingReceipt(true)}
           onRemove={removeReceipt}
         />
@@ -359,6 +362,7 @@ export default function TransactionFormScreen() {
           </ThemedText>
         </Pressable>
       </KeyboardAwareScrollView>
+      <ScanSourceSheet visible={choosingScanSource} onPick={scanReceipt} onClose={() => setChoosingScanSource(false)} />
       <ReceiptViewer
         uri={viewingReceipt && receipt ? receiptUri(receipt) : null}
         onClose={() => setViewingReceipt(false)}
