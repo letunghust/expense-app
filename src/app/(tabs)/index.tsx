@@ -16,10 +16,10 @@ import { TransactionItem } from '@/components/transaction-item';
 import { Spacing } from '@/constants/theme';
 import { useDbQuery } from '@/db/data-context';
 import {
+  getBalanceUntil,
   getDailyExpenses,
   getMonthlyExpenses,
   getSummary,
-  getTotalBalance,
   getTotalsByCategory,
   listRecentTransactions,
 } from '@/db/repo';
@@ -47,7 +47,7 @@ export default function OverviewScreen() {
         getSummary(db, range),
         getTotalsByCategory(db, range, 'expense'),
         isYear ? getMonthlyExpenses(db, range) : getDailyExpenses(db, range),
-        getTotalBalance(db),
+        getBalanceUntil(db, range.end),
         listRecentTransactions(db, RECENT_COUNT),
       ]);
       // One bar per month of the year, or per day of the month; keys are "YYYY-MM" or "YYYY-MM-DD".
@@ -84,7 +84,7 @@ export default function OverviewScreen() {
           <>
             <Card>
               <ThemedText type="small" themeColor="textSecondary">
-                {t.home.totalBalance}
+                {isYear ? t.home.balanceYearEnd : t.home.balanceMonthEnd}
               </ThemedText>
               <ThemedText style={styles.balance}>{formatVND(data.balance)}</ThemedText>
               <View style={styles.summaryRow}>

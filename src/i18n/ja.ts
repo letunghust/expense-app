@@ -64,7 +64,8 @@ export const ja: Strings = {
   },
 
   home: {
-    totalBalance: 'ウォレットの合計残高',
+    balanceMonthEnd: '月末時点の残高',
+    balanceYearEnd: '年末時点の残高',
     net: '収支',
     byCategory: 'カテゴリ別の支出',
     noExpenses: '今月の支出はまだありません',

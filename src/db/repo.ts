@@ -273,12 +273,14 @@ export function getMonthlyExpenses(db: SQLiteDatabase, range: DateRange): Promis
   );
 }
 
-export async function getTotalBalance(db: SQLiteDatabase): Promise<number> {
-  const row = await db.getFirstAsync<{ total: number | null }>(`
-    SELECT (SELECT COALESCE(SUM(initial_balance), 0) FROM wallets)
-      + (SELECT COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0) FROM transactions)
-      AS total
-  `);
+/** What all wallets together held at `end` (exclusive): starting balances plus every transaction dated before it. */
+export async function getBalanceUntil(db: SQLiteDatabase, end: string): Promise<number> {
+  const row = await db.getFirstAsync<{ total: number | null }>(
+    `SELECT (SELECT COALESCE(SUM(initial_balance), 0) FROM wallets)
+      + (SELECT COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0) FROM transactions WHERE date < ?)
+      AS total`,
+    end
+  );
   return row?.total ?? 0;
 }
 

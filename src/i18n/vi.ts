@@ -68,7 +68,8 @@ export const vi = {
   },
 
   home: {
-    totalBalance: 'Tổng số dư các ví',
+    balanceMonthEnd: 'Số dư đến cuối tháng',
+    balanceYearEnd: 'Số dư đến cuối năm',
     net: 'Chênh lệch',
     byCategory: 'Chi tiêu theo danh mục',
     noExpenses: 'Chưa có khoản chi nào trong tháng',

@@ -64,7 +64,8 @@ export const ko: Strings = {
   },
 
   home: {
-    totalBalance: '전체 지갑 잔액',
+    balanceMonthEnd: '월말 기준 잔액',
+    balanceYearEnd: '연말 기준 잔액',
     net: '차액',
     byCategory: '카테고리별 지출',
     noExpenses: '이번 달 지출이 아직 없습니다',

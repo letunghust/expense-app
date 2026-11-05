@@ -65,7 +65,8 @@ export const zh: Strings = {
   },
 
   home: {
-    totalBalance: '钱包总余额',
+    balanceMonthEnd: '截至月底余额',
+    balanceYearEnd: '截至年底余额',
     net: '结余',
     byCategory: '按分类支出',
     noExpenses: '本月还没有支出',

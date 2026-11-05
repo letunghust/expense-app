@@ -42,3 +42,9 @@ example
 /ios
 /android
 .wrangler/
+
+# public/ is published as is: test photos and screenshots must not end up there
+/public/*.jpg
+/public/*.jpeg
+/public/*.png
+/public/*.heic
