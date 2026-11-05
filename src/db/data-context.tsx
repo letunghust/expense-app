@@ -15,6 +15,11 @@ export function DataVersionProvider({ children }: { children: ReactNode }) {
   return <DataVersionContext.Provider value={{ version, notifyChanged }}>{children}</DataVersionContext.Provider>;
 }
 
+/** Changes after every write, for effects that must follow the data without reading it themselves. */
+export function useDataVersion() {
+  return useContext(DataVersionContext).version;
+}
+
 export function useNotifyDataChanged() {
   return useContext(DataVersionContext).notifyChanged;
 }

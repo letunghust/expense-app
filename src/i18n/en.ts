@@ -187,6 +187,23 @@ export const en: Strings = {
     transferTo: (name: string) => `Transfer to ${name}`,
   },
 
+  reminder: {
+    setting: 'Daily summary reminder',
+    settingHint: "Sums up the day's spending and reminds you to log what's missing",
+    time: 'Reminder time',
+    channel: 'Daily summary',
+    denied: 'Notifications are off',
+    deniedMessage: "Allow Chi Tiêu to send notifications in your phone's settings.",
+    titleSummary: "Today's summary",
+    titleEmpty: 'Time to log your spending',
+    summary: (expense: string, count: number) =>
+      `Spent ${expense} · ${count} ${count === 1 ? 'entry' : 'entries'}. Anything left to log?`,
+    summaryWithIncome: (income: string, expense: string, count: number) =>
+      `Earned ${income}, spent ${expense} · ${count} ${count === 1 ? 'entry' : 'entries'}. Anything left to log?`,
+    countOnly: (count: number) => `You logged ${count} ${count === 1 ? 'entry' : 'entries'} today. Anything left to log?`,
+    empty: 'Nothing logged today. Tap to add.',
+  },
+
   categories: {
     add: 'Add category',
     newTitle: 'New category',

@@ -8,6 +8,7 @@ import { DatabaseErrorBoundary } from '@/db/database-error-boundary';
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/db/schema';
 import { I18nProvider, useI18n } from '@/i18n';
 import { AppLockGate } from '@/lock/app-lock-context';
+import { ReminderScheduler } from '@/notifications/reminder-scheduler';
 import { cleanUpReceipts } from '@/receipts/scan';
 
 async function initDb(db: SQLiteDatabase) {
@@ -53,6 +54,7 @@ function App() {
                 <Stack.Screen name="security/pin" options={{ presentation: 'modal', title: t.screens.pin }} />
                 <Stack.Screen name="language" options={{ title: t.screens.language }} />
               </Stack>
+              <ReminderScheduler />
             </DataVersionProvider>
           </SQLiteProvider>
         </DatabaseErrorBoundary>

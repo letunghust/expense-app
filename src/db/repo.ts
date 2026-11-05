@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { categoryLabel, walletLabel } from '@/i18n/defaults';
+import type { DayTotals } from '@/lib/daily-reminder';
 import { matchesSearch } from '@/lib/search';
 
 import type {
@@ -270,6 +271,18 @@ export function getMonthlyExpenses(db: SQLiteDatabase, range: DateRange): Promis
      GROUP BY month ORDER BY month`,
     range.start,
     range.end
+  );
+}
+
+/** Totals per day from `start` up to `end` (exclusive); days without transactions are omitted. */
+export function getDayTotals(db: SQLiteDatabase, start: string, end: string): Promise<DayTotals[]> {
+  return db.getAllAsync<DayTotals>(
+    `SELECT date, COUNT(*) AS count,
+       SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS income,
+       SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS expense
+     FROM transactions WHERE date >= ? AND date < ? GROUP BY date`,
+    start,
+    end
   );
 }
 

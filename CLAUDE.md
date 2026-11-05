@@ -39,6 +39,8 @@ node:sqlite adapter in `src/db/__testutils__`).
   (`receipt-files.ts`) recovers the photo. Test with `am kill`, see the test-android skill.
 - Overview's big number is income − expense of the viewed month or year, nothing carried over (what the user expects).
   The balance of all wallets is on the wallets screen.
+- Daily reminder: Android only, local notifications, no server. The text is written in advance (`rescheduleReminders`)
+  and refreshed on every data change, because the app isn't running when it fires. No amounts in it when a PIN is set.
 - Commit as `-c user.name="tung" -c user.email="tunglehoctot@gmail.com"`; push to `origin master`.
 
 ## Shipping

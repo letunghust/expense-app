@@ -185,6 +185,22 @@ export const zh: Strings = {
     transferTo: (name: string) => `转账给 ${name}`,
   },
 
+  reminder: {
+    setting: '每日小结提醒',
+    settingHint: '汇总当天支出，并提醒记录遗漏的款项',
+    time: '提醒时间',
+    channel: '每日小结',
+    denied: '没有通知权限',
+    deniedMessage: '请在手机设置中允许 Chi Tiêu 发送通知。',
+    titleSummary: '今日小结',
+    titleEmpty: '记账提醒',
+    summary: (expense: string, count: number) => `支出 ${expense} · ${count} 笔。还有没记的吗？`,
+    summaryWithIncome: (income: string, expense: string, count: number) =>
+      `收入 ${income}，支出 ${expense} · ${count} 笔。还有没记的吗？`,
+    countOnly: (count: number) => `今天已记录 ${count} 笔。还有没记的吗？`,
+    empty: '今天还没有记录。点击添加。',
+  },
+
   categories: {
     add: '添加分类',
     newTitle: '新建分类',

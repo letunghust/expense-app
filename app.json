@@ -2,7 +2,7 @@
   "expo": {
     "name": "Chi Tiêu",
     "slug": "expense-app",
-    "version": "1.6.3",
+    "version": "1.7.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "expenseapp",
@@ -23,7 +23,9 @@
       "package": "com.tung.chitieu",
       "permissions": [
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM"
       ]
     },
     "web": {
@@ -66,7 +68,14 @@
           "microphonePermission": false
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#1E88E5"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

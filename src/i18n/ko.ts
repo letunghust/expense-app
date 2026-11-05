@@ -184,6 +184,22 @@ export const ko: Strings = {
     transferTo: (name: string) => `${name}님에게 이체`,
   },
 
+  reminder: {
+    setting: '매일 요약 알림',
+    settingHint: '하루 지출을 요약하고 빠진 항목을 기록하도록 알려 줍니다',
+    time: '알림 시간',
+    channel: '매일 요약',
+    denied: '알림 권한 없음',
+    deniedMessage: '휴대폰 설정에서 Chi Tiêu의 알림을 허용하세요.',
+    titleSummary: '오늘의 요약',
+    titleEmpty: '지출 기록 알림',
+    summary: (expense: string, count: number) => `지출 ${expense} · ${count}건. 아직 기록하지 않은 항목이 있나요?`,
+    summaryWithIncome: (income: string, expense: string, count: number) =>
+      `수입 ${income}, 지출 ${expense} · ${count}건. 아직 기록하지 않은 항목이 있나요?`,
+    countOnly: (count: number) => `오늘 ${count}건을 기록했습니다. 아직 기록하지 않은 항목이 있나요?`,
+    empty: '오늘 기록한 항목이 없습니다. 눌러서 추가하세요.',
+  },
+
   categories: {
     add: '카테고리 추가',
     newTitle: '새 카테고리',

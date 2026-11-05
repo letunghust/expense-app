@@ -6,6 +6,7 @@ import {
   deleteTransaction,
   deleteWallet,
   getDailyExpenses,
+  getDayTotals,
   getMonthlyExpenses,
   getSummary,
   getTransaction,
@@ -238,5 +239,24 @@ describe('summary of a period', () => {
     expect(await getSummary(db, monthRange({ year: 2027, month: 2 }))).toEqual({ income: 0, expense: 0 });
     expect(await getSummary(db, yearRange(2026))).toEqual({ income: 200_000, expense: 1_500_000 });
     expect(await getSummary(db, yearRange(2027))).toEqual({ income: 0, expense: 0 });
+  });
+});
+
+describe('totals per day', () => {
+  test('counts income and expense of each day in the range, end excluded', async () => {
+    const { db, byName, cash } = await setup();
+    const item = { walletId: cash, note: '' };
+    const expense = { ...item, type: 'expense' as const, categoryId: byName('Ăn uống') };
+    await createTransaction(db, { ...expense, amount: 30_000, date: '2026-11-05' });
+    await createTransaction(db, { ...expense, amount: 20_000, date: '2026-11-05' });
+    await createTransaction(db, { ...item, type: 'income', amount: 500_000, categoryId: byName('Lương'), date: '2026-11-05' });
+    await createTransaction(db, { ...expense, amount: 1_000, date: '2026-11-06' });
+    await createTransaction(db, { ...expense, amount: 9_000, date: '2026-11-04' });
+    await createTransaction(db, { ...expense, amount: 9_000, date: '2026-11-07' });
+
+    expect(await getDayTotals(db, '2026-11-05', '2026-11-07')).toEqual([
+      { date: '2026-11-05', count: 3, income: 500_000, expense: 50_000 },
+      { date: '2026-11-06', count: 1, income: 0, expense: 1_000 },
+    ]);
   });
 });

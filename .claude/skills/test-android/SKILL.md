@@ -69,3 +69,14 @@ pass a large photo through the library). `ui.sh tapText "While using the app"`, 
 App killed while the camera is open, the case that matters on real phones: `adb shell am kill com.tung.chitieu` before
 pressing the shutter, and check the pid changed. "Don't keep activities" does NOT test this: the JS process survives it.
 After `Done` the form must open with the photo; after `Cancel`, or on the next start, the main screen.
+
+## Daily reminder (Settings → "Nhắc tổng kết mỗi ngày")
+
+Needs a real EAS build the first time (native module). Set the time 2 minutes ahead with the system dialog, or check the
+schedule directly: `adb shell dumpsys alarm | grep -A3 chitieu`. Read a shown notification with
+`adb shell dumpsys notification --noredact | grep -A25 chitieu`; open the shade with `adb shell cmd statusbar expand-notifications`.
+
+What must work: fires with the app killed (`am kill`, not `force-stop`: force-stop cancels alarms by design), after
+`adb reboot`, and with today's numbers after saving a transaction. Tapping it opens the form, also from a cold start.
+With a PIN the text has no amounts. An emulator can't show what an OEM's battery saver does: only a real phone can.
+

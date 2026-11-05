@@ -184,6 +184,22 @@ export const ja: Strings = {
     transferTo: (name: string) => `${name} への振込`,
   },
 
+  reminder: {
+    setting: '毎日のまとめ通知',
+    settingHint: 'その日の支出をまとめ、記録漏れをお知らせします',
+    time: '通知時刻',
+    channel: '毎日のまとめ',
+    denied: '通知の許可がありません',
+    deniedMessage: 'スマートフォンの設定で Chi Tiêu の通知を許可してください。',
+    titleSummary: '今日のまとめ',
+    titleEmpty: '支出の記録リマインダー',
+    summary: (expense: string, count: number) => `支出 ${expense} · ${count} 件。まだ記録していないものはありませんか？`,
+    summaryWithIncome: (income: string, expense: string, count: number) =>
+      `収入 ${income}、支出 ${expense} · ${count} 件。まだ記録していないものはありませんか？`,
+    countOnly: (count: number) => `今日は ${count} 件記録しました。まだ記録していないものはありませんか？`,
+    empty: '今日はまだ記録がありません。タップして追加します。',
+  },
+
   categories: {
     add: 'カテゴリを追加',
     newTitle: '新しいカテゴリ',

@@ -188,6 +188,22 @@ export const vi = {
     transferTo: (name: string) => `Chuyển khoản cho ${name}`,
   },
 
+  reminder: {
+    setting: 'Nhắc tổng kết mỗi ngày',
+    settingHint: 'Tổng kết chi tiêu trong ngày và nhắc ghi khoản còn thiếu',
+    time: 'Giờ nhắc',
+    channel: 'Tổng kết hằng ngày',
+    denied: 'Chưa có quyền thông báo',
+    deniedMessage: 'Hãy cho phép Chi Tiêu gửi thông báo trong Cài đặt của điện thoại.',
+    titleSummary: 'Tổng kết hôm nay',
+    titleEmpty: 'Nhắc ghi chi tiêu',
+    summary: (expense: string, count: number) => `Đã chi ${expense} · ${count} khoản. Còn khoản nào chưa ghi không?`,
+    summaryWithIncome: (income: string, expense: string, count: number) =>
+      `Thu ${income}, chi ${expense} · ${count} khoản. Còn khoản nào chưa ghi không?`,
+    countOnly: (count: number) => `Hôm nay bạn đã ghi ${count} khoản. Còn khoản nào chưa ghi không?`,
+    empty: 'Hôm nay bạn chưa ghi khoản nào. Chạm để thêm.',
+  },
+
   categories: {
     add: 'Thêm danh mục',
     newTitle: 'Thêm danh mục',

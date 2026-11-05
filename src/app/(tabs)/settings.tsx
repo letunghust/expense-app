@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -19,11 +20,18 @@ import { useTheme } from '@/hooks/use-theme';
 import { strings, useI18n } from '@/i18n';
 import { categoryLabel, walletLabel } from '@/i18n/defaults';
 import { toCsv } from '@/lib/csv';
+import { formatReminderTime, type ReminderSettings } from '@/lib/daily-reminder';
 import { formatDate, formatDateDMY, toISODate, todayISO } from '@/lib/dates';
 import { confirmAction, confirmDestructive, showMessage } from '@/lib/dialog';
 import { useAppLock } from '@/lock/app-lock-context';
 import { authenticateWithBiometrics, type BiometricSupport, getBiometricSupport } from '@/lock/biometrics';
 import { setBiometricsEnabled } from '@/lock/lock-store';
+import {
+  loadReminderSettings,
+  REMINDER_SUPPORTED,
+  requestReminderPermission,
+  saveReminderSettings,
+} from '@/notifications/daily-reminder';
 import { readReceiptBase64, writeReceiptBase64 } from '@/receipts/receipt-files';
 import { cleanUpReceipts } from '@/receipts/scan';
 
@@ -217,6 +225,8 @@ export default function SettingsScreen() {
           />
         </Card>
 
+        {REMINDER_SUPPORTED && <ReminderCard />}
+
         <Card style={styles.group}>
           {busy && (
             <View style={styles.row}>
@@ -291,6 +301,60 @@ function SecurityCard() {
             {t.settings.autoLockHint}
           </ThemedText>
         </>
+      )}
+    </Card>
+  );
+}
+
+function ReminderCard() {
+  const { t } = useI18n();
+  const notifyChanged = useNotifyDataChanged();
+  const [reminder, setReminder] = useState<ReminderSettings>();
+
+  useEffect(() => {
+    loadReminderSettings().then(setReminder);
+  }, []);
+
+  if (!reminder) return null;
+
+  const update = async (next: ReminderSettings) => {
+    setReminder(next);
+    await saveReminderSettings(next);
+    notifyChanged(); // reschedules
+  };
+
+  const toggle = async (enabled: boolean) => {
+    if (enabled && !(await requestReminderPermission())) {
+      showMessage(t.reminder.denied, t.reminder.deniedMessage);
+      return;
+    }
+    await update({ ...reminder, enabled });
+  };
+
+  const pickTime = () =>
+    DateTimePickerAndroid.open({
+      value: new Date(2000, 0, 1, reminder.hour, reminder.minute),
+      mode: 'time',
+      is24Hour: true,
+      onValueChange: (_, date) => update({ ...reminder, hour: date.getHours(), minute: date.getMinutes() }),
+    });
+
+  return (
+    <Card style={styles.group}>
+      <SwitchRow
+        icon="notifications-outline"
+        label={t.reminder.setting}
+        hint={t.reminder.settingHint}
+        value={reminder.enabled}
+        onValueChange={toggle}
+      />
+      {reminder.enabled && (
+        <SettingsRow
+          icon="time-outline"
+          label={t.reminder.time}
+          value={formatReminderTime(reminder)}
+          onPress={pickTime}
+        />
       )}
     </Card>
   );
