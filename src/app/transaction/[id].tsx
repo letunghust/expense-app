@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/category-icon';
 import { Chip } from '@/components/chip';
@@ -60,6 +60,8 @@ export default function TransactionFormScreen() {
   const [categoryId, setCategoryId] = useState<number>();
   const [walletId, setWalletId] = useState<number>();
   const [date, setDate] = useState(initialScan?.date ?? todayISO());
+  // The day this form took as "today"; a date the user or a scan chose never moves.
+  const [defaultDate, setDefaultDate] = useState(initialScan?.date ? undefined : date);
   const [note, setNote] = useState(initialScan ? receiptNote(initialScan, t.receipt.transferTo) : '');
   const [receipt, setReceipt] = useState<string | null>(initialScan?.receipt ?? null);
   // Suggestions from a scanned screenshot, used until the user picks a category / wallet.
@@ -93,6 +95,18 @@ export default function TransactionFormScreen() {
       setLoaded(true);
     });
   }, [db, id, isNew]);
+
+  // A new form left open overnight, say from the evening reminder, must not save under yesterday's date.
+  useEffect(() => {
+    if (!isNew || date !== defaultDate) return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      const today = todayISO();
+      setDate(today);
+      setDefaultDate(today);
+    });
+    return () => subscription.remove();
+  }, [isNew, date, defaultDate]);
 
   const selectedCategoryId =
     categoryId ?? (categoryHint ? categories?.find((c) => c.type === type && c.name === categoryHint)?.id : undefined);

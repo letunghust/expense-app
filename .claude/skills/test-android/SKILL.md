@@ -80,3 +80,11 @@ What must work: fires with the app killed (`am kill`, not `force-stop`: force-st
 `adb reboot`, and with today's numbers after saving a transaction. Tapping it opens the form, also from a cold start.
 With a PIN the text has no amounts. An emulator can't show what an OEM's battery saver does: only a real phone can.
 
+Moving the clock is the fast way to fire it: `adb root`, `adb shell settings put global auto_time 0`,
+`adb shell "date MMDDhhmmYYYY.ss"` to 15 seconds before, then put it back. Traps that cost time here:
+- Back with a form open only closes the keyboard first, so the form stays and later input goes into it with its old date.
+  Check the saved date in the database before blaming the reminder.
+- Read `shared_prefs/expo.modules.notifications.SharedPreferencesNotificationsStore.xml` (base64) for what is scheduled.
+- Count pending alarms with `dumpsys alarm | grep -E 'RTC.*#[0-9]+: Alarm.*com.tung.chitieu'`: a plain grep also counts stats lines.
+- Run the app with a PIN too and read logcat: the lock screen closes the database while the app is coming back.
+

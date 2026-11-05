@@ -63,14 +63,20 @@ let latestRun = 0;
 export async function rescheduleReminders(db: SQLiteDatabase, hideAmounts: boolean): Promise<void> {
   const run = ++latestRun;
   const settings = await loadReminderSettings();
-  await Notifications.cancelAllScheduledNotificationsAsync();
-  if (!settings.enabled || run !== latestRun) return;
-
-  await setUpChannel();
   const times = reminderTimes(settings, new Date());
   const last = times[times.length - 1];
   const end = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1);
+  // Read before touching the schedule: the lock screen closes the database when the app comes back, and a
+  // failed read must leave the reminders in place, not gone until the next unlock.
   const totals = await getDayTotals(db, toISODate(times[0]), toISODate(end));
+  if (run !== latestRun) return;
+
+  await Notifications.cancelAllScheduledNotificationsAsync();
+  // Reminders from earlier days are out of date now that the app is open.
+  await Notifications.dismissAllNotificationsAsync();
+  if (!settings.enabled || run !== latestRun) return;
+
+  await setUpChannel();
   for (const date of times) {
     if (run !== latestRun) return;
     const day = toISODate(date);
