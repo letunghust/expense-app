@@ -17,10 +17,12 @@ $A shell 'for f in /sdcard/Pictures/*; do am broadcast -a android.intent.action.
 $A logcat -c
 $A shell am force-stop com.tung.chitieu
 $A shell monkey -p com.tung.chitieu -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
-sleep 10
+# Slower than usual right after the emulator boots, so wait for it instead of a fixed time.
+for _ in $(seq 1 40); do $UI dump | grep -qE 'content-desc="(Thêm giao dịch|Add transaction|거래 추가|添加交易|取引を追加)"' && break; sleep 2; done
 
 # Works in any app language: the scan button is the first accessibility label above the "+" button.
 scan_label=$($UI dump | grep -oE 'content-desc="[^"]+"' | sed -n 's/content-desc="\(.*\)"/\1/p' | grep -vE "^,|^$" | grep -B1 -m1 -E "Thêm giao dịch|Add transaction|거래 추가|添加交易|取引を追加" | head -1)
+[ -n "$scan_label" ] || { echo "app did not open ✗"; exit 1; }
 home() { for _ in 1 2 3; do $UI dump | grep -q "content-desc=\"$scan_label\"" && return; $UI back; sleep 2; done; }
 
 count=$(ls "$IMAGES" | wc -l); [ "$count" -gt 6 ] && count=6
