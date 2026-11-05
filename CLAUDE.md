@@ -37,6 +37,8 @@ node:sqlite adapter in `src/db/__testutils__`).
   Web keeps the image itself in the `receipt` column, so only the first item holds it (`RECEIPT_CAN_BE_SHARED`).
 - The camera can kill the app on real phones and `getPendingResultAsync` has nothing then: `takeInterruptedPhoto`
   (`receipt-files.ts`) recovers the photo. Test with `am kill`, see the test-android skill.
+- Overview's big number is income − expense of the viewed month or year, nothing carried over (what the user expects).
+  The balance of all wallets is on the wallets screen.
 - Commit as `-c user.name="tung" -c user.email="tunglehoctot@gmail.com"`; push to `origin master`.
 
 ## Shipping

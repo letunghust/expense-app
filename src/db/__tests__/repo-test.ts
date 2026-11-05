@@ -3,10 +3,8 @@ import {
   createCategory,
   createTransaction,
   createTransactions,
-  createWallet,
   deleteTransaction,
   deleteWallet,
-  getBalanceUntil,
   getDailyExpenses,
   getMonthlyExpenses,
   getSummary,
@@ -21,6 +19,8 @@ import {
   setBudget,
   updateTransaction,
 } from '../repo';
+import { monthRange, yearRange } from '@/lib/dates';
+
 import { migrateDbIfNeeded } from '../schema';
 import { openTestDb } from '../__testutils__/test-db';
 
@@ -113,7 +113,6 @@ describe('repo', () => {
     const wallets = await listWallets(db);
     expect(wallets.find((w) => w.id === cash)!.balance).toBe(-(50_000 + 120_000 + 30_000 + 999 + 888));
     expect(wallets.find((w) => w.id === bank)!.balance).toBe(15_000_000);
-    expect(await getBalanceUntil(db, '2027-01-01')).toBe(15_000_000 - 201_887);
 
     const all = await listTransactions(db, OCT);
     expect(all.map((t) => t.date)).toEqual(['2026-10-20', '2026-10-20', '2026-10-05', '2026-10-05']);
@@ -213,19 +212,31 @@ describe('split receipts', () => {
   });
 });
 
-describe('balance of a period', () => {
-  test('counts starting balances and what happened up to the end of the period, not after it', async () => {
+describe('summary of a period', () => {
+  test('a month only counts its own transactions: nothing carries over to later months', async () => {
     const { db, byName, cash } = await setup();
-    await createWallet(db, { name: 'Ví phụ', icon: 'wallet', initialBalance: 100_000 });
-    const item = { walletId: cash, note: '' };
-    const expense = { ...item, type: 'expense' as const, categoryId: byName('Ăn uống') };
-    await createTransaction(db, { ...expense, amount: 30_000, date: '2026-09-20' });
-    await createTransaction(db, { ...expense, amount: 5_000, date: '2026-10-31' });
-    await createTransaction(db, { ...expense, amount: 70_000, date: '2026-11-01' });
+    await createTransaction(db, {
+      type: 'expense',
+      amount: 1_500_000,
+      categoryId: byName('Ăn uống'),
+      walletId: cash,
+      date: '2026-11-30',
+      note: '',
+    });
+    await createTransaction(db, {
+      type: 'income',
+      amount: 200_000,
+      categoryId: byName('Lương'),
+      walletId: cash,
+      date: '2026-11-01',
+      note: '',
+    });
 
-    expect(await getBalanceUntil(db, '2026-09-01')).toBe(100_000); // nothing yet: only the starting balance
-    expect(await getBalanceUntil(db, '2026-10-01')).toBe(70_000);
-    expect(await getBalanceUntil(db, '2026-11-01')).toBe(65_000); // the first of the next month is not included
-    expect(await getBalanceUntil(db, '2026-12-01')).toBe(-5_000);
+    expect(await getSummary(db, monthRange({ year: 2026, month: 11 }))).toEqual({ income: 200_000, expense: 1_500_000 });
+    expect(await getSummary(db, monthRange({ year: 2026, month: 10 }))).toEqual({ income: 0, expense: 0 });
+    expect(await getSummary(db, monthRange({ year: 2026, month: 12 }))).toEqual({ income: 0, expense: 0 });
+    expect(await getSummary(db, monthRange({ year: 2027, month: 2 }))).toEqual({ income: 0, expense: 0 });
+    expect(await getSummary(db, yearRange(2026))).toEqual({ income: 200_000, expense: 1_500_000 });
+    expect(await getSummary(db, yearRange(2027))).toEqual({ income: 0, expense: 0 });
   });
 });

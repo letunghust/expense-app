@@ -273,17 +273,6 @@ export function getMonthlyExpenses(db: SQLiteDatabase, range: DateRange): Promis
   );
 }
 
-/** What all wallets together held at `end` (exclusive): starting balances plus every transaction dated before it. */
-export async function getBalanceUntil(db: SQLiteDatabase, end: string): Promise<number> {
-  const row = await db.getFirstAsync<{ total: number | null }>(
-    `SELECT (SELECT COALESCE(SUM(initial_balance), 0) FROM wallets)
-      + (SELECT COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0) FROM transactions WHERE date < ?)
-      AS total`,
-    end
-  );
-  return row?.total ?? 0;
-}
-
 // ---------- Budgets ----------
 
 /** Every active expense category with its monthly limit (if any) and how much was spent in the range. */

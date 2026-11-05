@@ -67,9 +67,8 @@ export const en: Strings = {
   },
 
   home: {
-    balanceMonthEnd: 'Balance through end of month',
-    balanceYearEnd: 'Balance through end of year',
-    net: 'Net',
+    netMonth: 'Net for the month',
+    netYear: 'Net for the year',
     byCategory: 'Spending by category',
     noExpenses: 'No expenses this month yet',
     noExpensesYear: 'No expenses this year yet',

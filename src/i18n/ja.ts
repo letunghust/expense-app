@@ -64,9 +64,8 @@ export const ja: Strings = {
   },
 
   home: {
-    balanceMonthEnd: '月末時点の残高',
-    balanceYearEnd: '年末時点の残高',
-    net: '収支',
+    netMonth: '月の収支',
+    netYear: '年の収支',
     byCategory: 'カテゴリ別の支出',
     noExpenses: '今月の支出はまだありません',
     noExpensesYear: '今年の支出はまだありません',

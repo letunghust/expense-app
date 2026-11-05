@@ -16,7 +16,6 @@ import { TransactionItem } from '@/components/transaction-item';
 import { Spacing } from '@/constants/theme';
 import { useDbQuery } from '@/db/data-context';
 import {
-  getBalanceUntil,
   getDailyExpenses,
   getMonthlyExpenses,
   getSummary,
@@ -43,11 +42,10 @@ export default function OverviewScreen() {
 
   const data = useDbQuery(
     async (db) => {
-      const [summary, byCategory, bars, balance, recent] = await Promise.all([
+      const [summary, byCategory, bars, recent] = await Promise.all([
         getSummary(db, range),
         getTotalsByCategory(db, range, 'expense'),
         isYear ? getMonthlyExpenses(db, range) : getDailyExpenses(db, range),
-        getBalanceUntil(db, range.end),
         listRecentTransactions(db, RECENT_COUNT),
       ]);
       // One bar per month of the year, or per day of the month; keys are "YYYY-MM" or "YYYY-MM-DD".
@@ -56,10 +54,12 @@ export default function OverviewScreen() {
         const key = 'month' in row ? row.month.slice(5, 7) : row.date.slice(8, 10);
         barTotals[Number(key) - 1] = row.total;
       }
-      return { summary, byCategory, barTotals, balance, recent };
+      return { summary, byCategory, barTotals, recent };
     },
     [range.start, range.end]
   );
+
+  const net = data ? data.summary.income - data.summary.expense : 0;
 
   const openTransactions = (categoryId?: number) =>
     router.navigate({
@@ -84,17 +84,14 @@ export default function OverviewScreen() {
           <>
             <Card>
               <ThemedText type="small" themeColor="textSecondary">
-                {isYear ? t.home.balanceYearEnd : t.home.balanceMonthEnd}
+                {isYear ? t.home.netYear : t.home.netMonth}
               </ThemedText>
-              <ThemedText style={styles.balance}>{formatVND(data.balance)}</ThemedText>
+              <ThemedText style={styles.net} themeColor={net >= 0 ? 'income' : 'expense'}>
+                {formatVND(net)}
+              </ThemedText>
               <View style={styles.summaryRow}>
                 <SummaryCell label={t.common.income} value={data.summary.income} color="income" />
                 <SummaryCell label={t.common.expense} value={data.summary.expense} color="expense" />
-                <SummaryCell
-                  label={t.home.net}
-                  value={data.summary.income - data.summary.expense}
-                  color={data.summary.income >= data.summary.expense ? 'income' : 'expense'}
-                />
               </View>
             </Card>
 
@@ -212,7 +209,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.two,
   },
-  balance: {
+  net: {
     fontSize: 28,
     lineHeight: 36,
     fontWeight: 700,
